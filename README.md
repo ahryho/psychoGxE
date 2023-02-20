@@ -19,15 +19,16 @@ The available multiomics data for the currect project:
 - Genotype
 - Phenotype 
 
-For detailed data overview, please refer to the ``` /code/integrative/data_overview```
+For detailed data overview, please refer to the ```/code/integrative/data_overview```
 
 ## Analysis
 
 The analysis includes the follwong steps:
 
 1. DNA methhylation (DNAm) profiling
-   The workflow and scripts are located: https://github.com/ahryho/dex-stim-human-dna-methyl-qc
    
+   The workflow and scripts are located: [dnam qc](https://github.com/ahryho/dex-stim-human-dna-methyl-qc)
+
 2. Smoking score estimation
 3. Differential DNA methylation analysis
 4. Methylation quantitative trait loci (meQTL) analysis
