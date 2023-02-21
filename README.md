@@ -27,22 +27,22 @@ The analysis includes the follwong steps:
 
 ### 1. DNA methhylation (DNAm) profiling
    
-The workflow and scripts are located: [DNAm QCc](https://github.com/ahryho/dex-stim-human-dna-methyl-qc)
+For the methodology and scripts, please refer to [DNAm QCc](https://github.com/ahryho/dex-stim-human-dna-methyl-qc)
 
 ### 2. Smoking score estimation
    
-The workflow and scripts are located: [smoking score calculation](https://github.com/ahryho/dex-stim-human-smoking-score)
+For the methodology and scripts, please refer to [smoking score calculation](https://github.com/ahryho/dex-stim-human-smoking-score)
 
 ### 3. Differential DNA methylation analysis
 
-The workflow and scripts are located: [dDNAm](https://github.com/ahryho/psychoGE/tree/master/code/methylation/)
+For the methodology and scripts, please refer to [dDNAm](https://github.com/ahryho/psychoGE/tree/master/code/methylation/)
 
 ### 4. Methylation quantitative trait loci (meQTL) analysis
 
 
 ### 5. Expression quantitative trait methylation (eQTM) analysis
 
-The workflow and scripts are located: [eQTM analysis](https://github.com/ahryho/psychoGE/tree/master/code/integrative/eqtm)
+For the methodology and scripts, please refer to [eQTM analysis](https://github.com/ahryho/psychoGE/tree/master/code/integrative/eqtm).
 
 ### 6. Functional genomic annotation of differential DNAm
 
@@ -55,6 +55,7 @@ For more details, please refer to [methodology](https://github.com/ahryho/dex-st
 
 ### 8. Cell-type specific analysis
 
+For the methodology and scripts, please refer to [cell-type specific analysis](https://github.com/ahryho/psychoGE/tree/master/code/integrative/meqtl/05_cell_type_enrichment).
 
 ### 9.  Functional enrichment analysis
 
