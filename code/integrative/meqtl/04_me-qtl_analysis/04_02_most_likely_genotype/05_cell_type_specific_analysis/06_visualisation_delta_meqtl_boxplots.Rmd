@@ -1,0 +1,338 @@
+---
+title: "cis-meQTLs-eQTMs Analysis"
+subtitle: "Dexamethasone-Stimulated Human Array Project"
+author: 
+  - name: Anastasiia Hryhorzhevska
+    email: anastasiia_hry@psych.mpg.de
+    url: https://github.com/ahryho
+    affiliation: Max Planck Institute of Psychiatry
+    affiliation_url: https://www.psych.mpg.de/2664393/medizinische-genomforschung
+date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    df_print: paged
+    css: ../../style.css
+    code_folding: hide
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r, include=FALSE}
+options(digits = 4, width = 100, stringsAsFactors = T)
+knitr::opts_chunk$set(echo = TRUE,
+                      tidy.opts = list(width.cutoff = 100),
+                      tidy=TRUE,
+                      fig.pos = "H",
+                      fig.width = 10,
+                      dpi = 150,
+                      warning = FALSE, 
+                      message = FALSE, 
+                      cache = TRUE, 
+                      cache.lazy = FALSE,
+                      include = F,
+                      eval = T)
+
+# define DT as the standard printing method for data.frame
+library(knitr)
+library(DT)
+knit_print.data.frame <- function(x, ...) {
+  knit_print(DT::datatable(x,
+                           filter="top",
+                           rownames = FALSE,
+                           extensions = "FixedColumns",
+                           options = list(
+                             scrollX = TRUE,
+                             pageLength = 5
+                             
+                           )), ...)
+}
+
+registerS3method("knit_print", "data.frame", knit_print.data.frame)
+```
+```{r include=FALSE}
+library(data.table)
+library(dplyr)
+
+library(grid)
+library(gridExtra)
+library(ggplot2)
+library(ggrepel)
+library(scales)
+library(GGally)
+library(factoextra)
+library(viridis)
+
+library(UpSetR)
+library(eulerr)
+library(ggVennDiagram)
+library(corrplot)
+```
+
+```{r load-func, include = F, eval = T}
+setwd("~/bio/code/mpip/dex-stim-human-array/")
+source("code/integrative/util.R")
+source("code/integrative/meqtl/05_cell_type_enrichment/04_overlap_with_provencal_pnas_data/00_custom_functions.R")
+
+```
+
+***
+# 
+***
+
+```{r load-data}
+dex.blood.types.snp.lst      <- readRDS("~/bio/code/mpip/dex-stim-human-array/output/data/integrative/cell_type_enrichment/dex_meqtl_snps_by_blood_cell_type_significant.rds") # dex == delta
+
+delta.blood.types.meqtls.lst <- readRDS("~/bio/code/mpip/dex-stim-human-array/output/data/integrative/cell_type_enrichment/delta_meqtls_by_blood_cell_type_significant.rds") 
+
+delta.blood.types.meqtls.df  <- delta.blood.types.meqtls.lst %>% bind_rows() %>% unique() %>% setDT()
+
+veh.blood.types.snp.lst      <- readRDS("~/bio/code/mpip/dex-stim-human-array/output/data/integrative/cell_type_enrichment/veh_meqtl_snps_by_blood_cell_type_significant.rds")
+
+chromhmm.snp.state.lst.df    <- readRDS("~/bio/code/mpip/dex-stim-human-array/output/data/integrative/matrixEQTL/05_me-qtl_enrichment/region_wise_independent_snps/dex_meqtl_snps_by_chromhmm_state_blood_significant.rds")
+
+epigenome.blood.map.df <- fread("~/bio/code/mpip/dex-stim-human-array/data/annotation/chromHMM/epigenomes_blood.csv")
+
+snp.df    <- fread("~/bio/code/mpip/dex-stim-human-array/data/integrative/matrixEQTL/snp_mtrx_backup/snp_mtrx.csv")
+
+delta.meqtls.for.eqtms  <- fread("~/bio/code/mpip/dex-stim-human-array/output/data/integrative/matrixEQTL/eqtms/delta_meqtls_significant_for_eqtm_analysis.csv")
+
+## DNAm beta matrices for delta meqtls
+##
+beta.veh.sub.mtrx <- GetMethylSubset(treatment = "veh", delta.meqtls.for.eqtms, is.out = F) # 653 x 197 
+beta.dex.sub.mtrx <- GetMethylSubset(treatment = "dex", delta.meqtls.for.eqtms, is.out = F) # 653 x 197
+
+## Load GEX matrices
+## 
+gex.dex.mtrx      <- LoadGEX("dex")
+gex.veh.mtrx      <- LoadGEX("veh")
+
+## eQTMs
+## 
+eqtms.fn <- "~/bio/code/mpip/dex-stim-human-array/output/data/integrative/matrixEQTL/eqtms/eqtm_cis_result_from_delta_meqtls_cell_type.csv"
+eqtm.df <- fread(eqtms.fn)
+```
+
+```{r, eval = F}
+delta.meqtls.for.eqtms <- plyr::join(delta.blood.types.meqtls.df[, .(fdr = min(fdr)), by = CpG_ID], 
+                                    delta.blood.types.meqtls.df[, .(CpG_ID, fdr, SNP)], match = "first")[, .(CpG_ID, SNP)]
+
+write.table(delta.meqtls.for.eqtms, 
+       "~/bio/code/mpip/dex-stim-human-array/output/data/integrative/matrixEQTL/eqtms/delta_meqtls_significant_for_eqtm_analysis.csv", row.names = F, quote = F, sep = "\t", col.names = T, append = F)
+```
+
+```{r prepare-data}
+dex.blood.types.snps.df <- lapply(names(dex.blood.types.snp.lst), 
+                                  function(blood.type){
+                                    data.frame(Type = blood.type, SNP = dex.blood.types.snp.lst[[blood.type]])
+                                  }) %>% bind_rows() %>% unique()
+
+veh.blood.types.snps.df <- lapply(names(veh.blood.types.snp.lst), 
+                                  function(blood.type){
+                                    data.frame(Type = blood.type, SNP = veh.blood.types.snp.lst[[blood.type]])
+                                  }) %>% bind_rows() %>% unique()
+
+chromhmm.snps.df <- chromhmm.snp.state.lst.df %>% bind_rows()
+chromhmm.snps.df <- left_join(chromhmm.snps.df, epigenome.blood.map.df[, .(EID, Salas)], by = c("eid" = "EID"))
+```
+
+```{r local-functions}
+GetPlots <- function(blood.type, chromhmm.snps.df, dex.blood.types.snps.df, veh.blood.types.snps.df, chromhmm.state, eqtm.df){
+  
+  if (blood.type %in% "Bmem+Bnv") {
+    snp.lst <- list(chromHMM = unique(chromhmm.snps.df[chromhmm.snps.df$Salas == blood.type, ]$SNP), 
+                    dexDNAm = unique(dex.blood.types.snps.df[dex.blood.types.snps.df$Type %in% c("Bmem", "Bnv"), "SNP"]),
+                    baseDNAm = unique(veh.blood.types.snps.df[veh.blood.types.snps.df$Type %in% c("Bmem", "Bnv"), "SNP"]))
+  } else snp.lst <- list(chromHMM = unique(chromhmm.snps.df[chromhmm.snps.df$Salas %in% blood.type, ]$SNP), 
+                         dexDNAm = unique(dex.blood.types.snps.df[dex.blood.types.snps.df$Type %in% blood.type, "SNP"]),
+                         baseDNAm = unique(veh.blood.types.snps.df[veh.blood.types.snps.df$Type %in%  blood.type, "SNP"]))
+  
+  intersect.dex.mesnp.chromhmm     <- intersect(snp.lst$chromHMM, snp.lst$dexDNAm)
+  intersect.dex.veh.mesnp          <- intersect(snp.lst$baseDNAm, snp.lst$dexDNAm)
+  intersect.dex.chromhmm.no.base   <- setdiff(intersect.dex.mesnp.chromhmm, intersect.dex.veh.mesnp)
+  intersect.dex.chromhmm.with.base <- intersect(intersect.dex.mesnp.chromhmm, intersect.dex.veh.mesnp)
+  
+  intersect.veh.mesnp.chromhmm     <- intersect(snp.lst$chromHMM, snp.lst$baseDNAm)
+  intersect.veh.chromhmm.no.dex    <- setdiff(intersect.veh.mesnp.chromhmm, intersect.dex.veh.mesnp)
+  
+  write.table(intersect.dex.chromhmm.no.base, 
+              paste0("~/bio/code/mpip/dex-stim-human-array/output/data/integrative/cell_type_enrichment/for_phewas/",
+                     "delta_mesnps_", blood.type, "_no_base.csv"),
+              row.names = F, quote = F, sep = "\t", col.names = T, append = F)
+  
+  write.table(intersect.dex.chromhmm.with.base, 
+              paste0("~/bio/code/mpip/dex-stim-human-array/output/data/integrative/cell_type_enrichment/for_phewas/",
+                     "delta_mesnps_", blood.type, "_with_base.csv"),
+              row.names = F, quote = F, sep = "\t", col.names = T, append = F)
+  
+  if (blood.type == "Bmem+Bnv") type <- c("Bmem", "Bnv") else type <- blood.type
+  
+  meqtl.id <- delta.blood.types.meqtls.df[SNP %in% intersect.dex.chromhmm.no.base,][Type %in% type][order(fdr, decreasing = F)] #[fdr == min(fdr)]
+  eqtm.id <- eqtm.df[CpG_ID %in% meqtl.id$CpG_ID][SNP %in% meqtl.id$SNP][FDR == min(FDR)]
+  
+  plot.title <- paste0("Example of meQTL in ", blood.type, " in ", chromhmm.state, ", dex and chromhmm intersection\n meQTL FDR = ", signif(meqtl.id[CpG_ID == eqtm.id$CpG_ID[1]][SNP == eqtm.id$SNP[1], fdr], 4))
+  plt.no.base <- ProcessGetBoxPlot(beta.veh.sub.mtrx, beta.dex.sub.mtrx, snp.df, eqtm.id[1, ], fdr.thr = 0.05,  plot.title = plot.title)
+  
+  plot.title       <- paste0("Example of eQTM in ", blood.type, " in ", chromhmm.state, ", dex and chromhmm intersection\n eQTM FDR = ", signif(eqtm.id$FDR, 4))
+  plt.eqtl.no.base <- ProcessGetBoxPlot(gex.veh.mtrx, gex.dex.mtrx, snp.df, eqtm.id[1, .(ENSG_ID, SNP)], fdr.thr = 0.05, 
+                  plot.title = plot.title)
+  
+  scatter.plt.no.base <- ScatterPlotGEXvsDNAm(beta.dex.sub.mtrx, beta.veh.sub.mtrx,
+                                           gex.dex.mtrx, gex.veh.mtrx,
+                                           cpg.id = eqtm.id$CpG_ID[1], ensg.id = eqtm.id$ENSG_ID[1])
+  
+  # with base
+  # 
+  meqtl.id <- delta.blood.types.meqtls.df[SNP %in% intersect.dex.chromhmm.with.base,][Type %in% type][order(fdr, decreasing = F)] # [fdr == min(fdr)]
+  eqtm.id <- eqtm.df[CpG_ID %in% meqtl.id$CpG_ID][SNP %in% meqtl.id$SNP][FDR == min(FDR)]
+  
+  plot.title <- paste0("Example of meQTL in ", blood.type, " in ", chromhmm.state, ", dex, baseline, chromhmm intersection\n meQTL FDR = ", signif(meqtl.id[CpG_ID == eqtm.id$CpG_ID[1]][SNP == eqtm.id$SNP[1], fdr], 4))
+  plt.with.base <- ProcessGetBoxPlot(beta.veh.sub.mtrx, beta.dex.sub.mtrx, snp.df, eqtm.id[1,], fdr.thr = 0.05,  plot.title = plot.title)
+  
+  plot.title <- paste0("Example of eQTM in ", blood.type, " in ", chromhmm.state, ", dex, baseline, chromhmm intersection\n eQTM FDR = ", signif(eqtm.id$FDR, 4))
+  plt.eqtl.with.base <- ProcessGetBoxPlot(gex.veh.mtrx, gex.dex.mtrx, snp.df, eqtm.id[1, .(ENSG_ID, SNP)], fdr.thr = 0.05, 
+                  plot.title = plot.title)
+  
+  scatter.plt.with.base <- ScatterPlotGEXvsDNAm(beta.dex.sub.mtrx, beta.veh.sub.mtrx,
+                                           gex.dex.mtrx, gex.veh.mtrx,
+                                           cpg.id = eqtm.id$CpG_ID[1], ensg.id = eqtm.id$ENSG_ID[1])
+  
+  return(list(no_base = list(plt.meqtl = plt.no.base, plt.eqtl = plt.eqtl.no.base, scatter.plt = scatter.plt.no.base),
+           with_base = list(plt.meqtl = plt.with.base, plt.eqtl = plt.eqtl.with.base, scatter.plt = scatter.plt.with.base)))
+}
+```
+
+# Plots
+
+```{r}
+chromhmm.state <- "all significant states"
+
+blood.cell.types.of.interest <- c("Bmem+Bnv", "CD4mem", "CD4nv", "CD8mem", "Neu")
+chromhmm.state.of.interest   <- c("2_TssAFlnk", "3_TxFlnk", "4_Tx", "7_Enh", "14_ReprPCWk", "6_EnhG", "10_TssBiv", "5_TxWk" )
+```
+
+## B-cells
+
+```{r}
+blood.type <- "Bmem+Bnv"
+
+plt.res <- GetPlots(blood.type,
+                    chromhmm.snps.df = chromhmm.snps.df[state %in% chromhmm.state.of.interest, ], 
+                    dex.blood.types.snps.df = dex.blood.types.snps.df, 
+                    veh.blood.types.snps.df = veh.blood.types.snps.df,
+                    chromhmm.state = chromhmm.state,
+                    eqtm.df = eqtm.df)
+```
+
+### No base effect
+
+```{r, include = T}
+grid.arrange(arrangeGrob(plt.res$no_base$plt.meqtl, plt.res$no_base$plt.eqtl, plt.res$no_base$scatter.plt, nrow = 1))
+```
+
+### With base effect
+
+```{r, include = T}
+grid.arrange(arrangeGrob(plt.res$with_base$plt.meqtl, plt.res$with_base$plt.eqtl, plt.res$with_base$scatter.plt, nrow = 1))
+```
+
+## CD4mem
+
+```{r}
+blood.type <- "CD4mem"
+
+plt.res <- GetPlots(blood.type,
+                    chromhmm.snps.df = chromhmm.snps.df[state %in% chromhmm.state.of.interest, ], 
+                    dex.blood.types.snps.df = dex.blood.types.snps.df, 
+                    veh.blood.types.snps.df = veh.blood.types.snps.df,
+                    chromhmm.state = chromhmm.state,
+                    eqtm.df = eqtm.df)
+```
+
+### No base effect
+
+```{r, include = T}
+grid.arrange(arrangeGrob(plt.res$no_base$plt.meqtl, plt.res$no_base$plt.eqtl, plt.res$no_base$scatter.plt, nrow = 1))
+```
+
+### With base effect
+
+```{r, include = T}
+grid.arrange(arrangeGrob(plt.res$with_base$plt.meqtl, plt.res$with_base$plt.eqtl, plt.res$with_base$scatter.plt, nrow = 1))
+```
+
+## CD4nv
+
+```{r}
+blood.type <- "CD4nv"
+
+plt.res <- GetPlots(blood.type,
+                    chromhmm.snps.df = chromhmm.snps.df[state %in% chromhmm.state.of.interest, ], 
+                    dex.blood.types.snps.df = dex.blood.types.snps.df, 
+                    veh.blood.types.snps.df = veh.blood.types.snps.df,
+                    chromhmm.state = chromhmm.state,
+                    eqtm.df = eqtm.df)
+```
+
+### No base effect
+
+```{r, include = T}
+grid.arrange(arrangeGrob(plt.res$no_base$plt.meqtl, plt.res$no_base$plt.eqtl, plt.res$no_base$scatter.plt, nrow = 1))
+```
+
+### With base effect
+
+```{r, include = T}
+grid.arrange(arrangeGrob(plt.res$with_base$plt.meqtl, plt.res$with_base$plt.eqtl, plt.res$with_base$scatter.plt, nrow = 1))
+```
+
+## CD8mem
+
+```{r}
+blood.type <- "CD8mem"
+
+plt.res <- GetPlots(blood.type,
+                    chromhmm.snps.df = chromhmm.snps.df[state %in% chromhmm.state.of.interest, ], 
+                    dex.blood.types.snps.df = dex.blood.types.snps.df, 
+                    veh.blood.types.snps.df = veh.blood.types.snps.df,
+                    chromhmm.state = chromhmm.state,
+                    eqtm.df = eqtm.df)
+```
+
+### No base effect
+
+```{r, include = T}
+grid.arrange(arrangeGrob(plt.res$no_base$plt.meqtl, plt.res$no_base$plt.eqtl, plt.res$no_base$scatter.plt, nrow = 1))
+```
+
+### With base effect
+
+```{r, include = T}
+grid.arrange(arrangeGrob(plt.res$with_base$plt.meqtl, plt.res$with_base$plt.eqtl, plt.res$with_base$scatter.plt, nrow = 1))
+```
+
+## Neu
+
+```{r}
+blood.type <- "Neu"
+
+plt.res <- GetPlots(blood.type,
+                    chromhmm.snps.df = chromhmm.snps.df[state %in% chromhmm.state.of.interest, ], 
+                    dex.blood.types.snps.df = dex.blood.types.snps.df, 
+                    veh.blood.types.snps.df = veh.blood.types.snps.df,
+                    chromhmm.state = chromhmm.state,
+                    eqtm.df = eqtm.df)
+```
+
+### No base effect
+
+```{r, include = T}
+grid.arrange(arrangeGrob(plt.res$no_base$plt.meqtl, plt.res$no_base$plt.eqtl, plt.res$no_base$scatter.plt, nrow = 1))
+```
+
+### With base effect
+
+```{r, include = T}
+grid.arrange(arrangeGrob(plt.res$with_base$plt.meqtl, plt.res$with_base$plt.eqtl, plt.res$with_base$scatter.plt, nrow = 1))
+```

@@ -1,0 +1,483 @@
+---
+title: "Cell-type specific analysis and ChromHMM enrichment of cis-meQTLs: Genotype with missingness. LD clumped results"
+subtitle: "Dexamethasone-Stimulated Human Array Project"
+author: 
+  - name: Anastasiia Hryhorzhevska
+    email: anastasiia_hry@psych.mpg.de
+    url: https://github.com/ahryho
+    affiliation: Max Planck Institute of Psychiatry
+    affiliation_url: https://www.psych.mpg.de/2664393/medizinische-genomforschung
+date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    df_print: paged
+    css: ~/mpip/projects/dex-stim-human-array/code/integrative/style.css
+    code_folding: hide
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r, include=FALSE}
+options(digits = 4, width = 100, stringsAsFactors = T)
+knitr::opts_chunk$set(echo = TRUE,
+                      tidy.opts = list(width.cutoff = 100),
+                      tidy=TRUE,
+                      fig.pos = "H",
+                      dpi = 200,
+                      warning = FALSE, 
+                      message = FALSE, 
+                      include = TRUE,
+                      cache = TRUE, 
+                      cache.lazy = FALSE)
+
+# define DT as the standard printing method for data.frame
+library(knitr)
+library(DT)
+knit_print.data.frame <- function(x, ...) {
+  knit_print(DT::datatable(x,
+                           filter="top",
+                           rownames = FALSE,
+                           extensions = "FixedColumns",
+                           options = list(
+                             scrollX = TRUE,
+                             pageLength = 5
+                             
+                           )), ...)
+}
+
+registerS3method("knit_print", "data.frame", knit_print.data.frame)
+
+library(data.table)
+library(arrow)
+library(dplyr)
+
+library(ggplot2)
+library(ggrepel)
+library(scales)
+library(GGally)
+library(viridis)
+library(eulerr)
+
+library(GenomicRanges)
+
+library(officer)
+```
+
+```{r plot-param, include = F, eval = T}
+standard_textsize <- 12
+standard_dpi_fig  <- 600
+standard_width_mm_single <- 90
+standard_width_mm_double <- 180
+standard_height_mm <- 100
+```
+
+# Introduction
+***
+
+## meQTL analysis
+
+This markdown provides comparison between two meQTL analysis after LD clumping. meQTL analysis were done using the R package _MatrixEQTL_. LD clumping was done using PLINK
+
+For all analysis, the same DNAm data were used which underwent following QC steps: 
+
+<!-- ![DNAm QC](~/mpip/projects/dex-stim-human-array/code/integrative/data_overview/img/dnam_qc_roadmap.pdf){width=100%} -->
+
+The imputed QC __SNP data__ (no LD pruning, the MHC regions are included) were used. The data includes __3'957'338 SNPs__.
+
+All meQTLs passed the significance threshold of FDR = 0.05. 
+
+LD clumping was done per CpG using the following parameters:
+
+  --clump-p1 = 0.05:           Significance threshold for index SNPs
+   
+  --clump-p2 = 1:              Secondary significance threshold for clumped SNPs
+ 
+  --clump-r2 = 0.2:            LD threshold for clumping
+
+  --clump-kb = 200:            Physical distance threshold for clumping
+
+## Cell-type specific analysis
+
+1. Find the associations between baseline/dex-GR-response CpGs and 12 blood cell types using linear model and adjusting for covariates
+
+2. Adjust for multiple testing correction and extract associations at FDR $\leq$ 0.05
+
+3. Get intersected CpGs between baseline and dex-GR-response CpGs which were obtained at set 2.
+
+4. Extract delta GR-response meQTL CpGs from intersection from step 3. 
+
+<!-- # Results -->
+
+```{r load-func, include = F, eval = T}
+setwd("~/mpip/projects/dex-stim-human-array/")
+
+file.sources <- c("code/integrative/util.R",
+                  "code/integrative/meqtl/04_me-qtl_analysis/04_04_me-qtl_snp_annotation/PlotChromHMMEnrichment.R",
+                  "code/integrative/meqtl/04_me-qtl_analysis/04_04_me-qtl_snp_annotation/SavePPTXChromHMMEnrichmentPlot.R")
+                  
+sapply(file.sources, source, .GlobalEnv)
+```
+
+```{r include = F, eval = T}
+cbPalette <- c("grey", "#0072B2")
+```
+
+```{r, include = F, eval = T}
+out.dir.pre  <- "/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/integrative/matrixEQTL/meqtls/with_missingness/clumped/"
+setwd(out.dir.pre)
+
+meqtl.delta.fn <- "me-qtl_cis_result_snps_with_na_delta_beta_fdr_005.csv"
+col.names      <-  c("SNP", "CpG_ID", "beta", "t-stat", "p-value", "fdr")
+meqtl.delta.df <- fread(meqtl.delta.fn, col.names = col.names)
+```
+
+```{r include = F}
+bcc.rslt.dir <- "/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/integrative/cell_type_enrichment/"
+setwd(bcc.rslt.dir)
+
+veh.bcc.fdr.df <- fread("dnam_cell_type_enrichment_veh_fdr_005.csv")
+dex.bcc.fdr.df <- fread("dnam_cell_type_enrichment_dex_fdr_005.csv")
+```
+
+```{r include = F}
+dnam.veh <- LoadMethylBeta(treatment = "veh") %>% setDT()
+dnam.dex <- LoadMethylBeta(treatment = "dex") %>% setDT()
+```
+
+# Baseline vs GR-response (post-dex)
+***
+
+```{r include = F}
+veh.cpgs          <- veh.bcc.fdr.df$CpG_ID %>% unique()
+dex.cpgs          <- dex.bcc.fdr.df$CpG_ID %>% unique()
+intersect.allcpgs <- intersect(veh.cpgs, dex.cpgs) 
+
+bcc.fdr.df        <- rbind(veh.bcc.fdr.df[CpG_ID %in% intersect.allcpgs,],
+                           dex.bcc.fdr.df[CpG_ID %in% intersect.allcpgs,]) %>% setDT()
+
+bcc.fdr.df[Treatment == "veh", Treatment := "Baseline"]
+bcc.fdr.df[Treatment == "dex", Treatment := "GR-induced"]
+```
+
+Number of unique GR-response CpGs from dex from cell-type specific analysis: ```r length(dex.cpgs)```
+
+Number of unique baseline CpGs from baseline from cell-type specific analysis: ```r length(veh.cpgs)```
+
+Number of intesecting CpGs:  ```r length(intersect.cpgs)```
+
+```{r fig.cap="Distribution of CpGs significant at FDR = 0.05 across 12 blood cell types"}
+plt.size <- 12
+
+distr.bcc.all.plt <- ggplot(bcc.fdr.df, aes(x = Type, fill = Treatment, color = Treatment)) +
+  geom_bar(stat = "count", position = position_dodge(width = .9)) +
+  geom_text(
+    aes(label = scales::percent(stat(count) / length(intersect.allcpgs), accuracy = 0.1)), 
+    stat = "count", vjust = -0.5, size = plt.size / 3, position = position_dodge(width = 0.9), color = "black") + 
+  theme_custom() +
+  theme(legend.position = "none",
+        legend.title = element_blank(),
+        panel.grid.major.x = element_line(color = "lightgrey", linewidth = 0.15),
+        panel.grid.major.y = element_line(color = "lightgrey", linewidth = 0.15)) +
+  scale_y_continuous(labels = function(x) format(x, scientific = TRUE)) +
+  labs(title = "",
+       x = "", y = "Frequency of CpGs") +
+  scale_color_manual(values = cbPalette) +
+  scale_fill_manual(values = alpha(cbPalette, 0.3))
+
+distr.bcc.all.plt
+```
+
+## Distribution of DNAm values across blood cell types
+
+<!-- Extract intersected delta meQTL CpGs -->
+
+```{r eval = T, include = F}
+dnam.veh.subset <- dnam.veh[CpG_ID %in% intersect.allcpgs] %>% mutate(Treatment = "Baseline")
+dnam.dex.subset <- dnam.dex[CpG_ID %in% intersect.allcpgs] %>% mutate(Treatment = "GR-induced")
+
+dnam.subset     <- rbind(dnam.veh.subset,
+                         dnam.dex.subset) %>% 
+  melt(id = c("CpG_ID", "Treatment"))
+
+dnam.subset     <- left_join(bcc.fdr.df[, .(CpG_ID, Type, Treatment)], dnam.subset)
+```
+
+<!-- Plot -->
+
+```{r fig.cap="DNA methylation beta values of significant CpGs at FDR <= 0.05 across 12 blood cell types"}
+plt.size <- 12
+
+dnam.bcc.all.plt <- ggplot(dnam.subset, aes(x = Type, y = value, color = Treatment, fill = Treatment)) +
+  geom_boxplot(position = position_dodge(width = 0.8)) +
+  theme_custom() +
+  theme(legend.position = "bottom",
+        legend.title = element_blank(),
+        legend.text = element_text(size = plt.size),
+        panel.grid.major.x = element_line(color = "lightgrey", linewidth = 0.15),
+        panel.grid.major.y = element_line(color = "lightgrey", linewidth = 0.15)) +
+  labs(title = "",
+       x = "", y = "DNAm beta values") +
+  scale_color_manual(values = cbPalette) +
+  scale_fill_manual(values = alpha(cbPalette, 0.3))
+
+dnam.bcc.all.plt
+```
+
+# Cell-type specificity on GR-induced (delta)-meQTLs
+***
+
+```{r include = F}
+delta.meqtl.cpgs  <- meqtl.delta.df$CpG_ID %>% unique() 
+
+veh.cpgs          <- veh.bcc.fdr.df[CpG_ID %in% delta.meqtl.cpgs, CpG_ID] %>% unique()
+dex.cpgs          <- dex.bcc.fdr.df[CpG_ID %in% delta.meqtl.cpgs, CpG_ID] %>% unique()
+intersect.cpgs    <- intersect(veh.cpgs, dex.cpgs) 
+
+delta.meqtl.bcc.fdr.df <- rbind(veh.bcc.fdr.df[CpG_ID %in% intersect.cpgs,],
+                               dex.bcc.fdr.df[CpG_ID %in% intersect.cpgs,])
+```
+
+Number of unique delta GR-response meQTL CpGs among CpGs from dex from cell-type specific analysis: ```r length(dex.cpgs)```
+
+Number of unique delta GR-response meQTL CpGs among CpGs from baseline from cell-type specific analysis: ```r length(veh.cpgs)```
+
+Number of intesecting CpGs:  ```r length(intersect.cpgs)```
+
+<!-- Check if changes are significant -->
+
+<!-- Kolmogorov-Smirnov test: Do 2 samples follow the same distribution? -->
+
+```{r include = F}
+blood.cell.types <- unique(delta.meqtl.bcc.fdr.df$Type)
+
+test.res.df <- lapply(blood.cell.types, function(i){  # for each blood cell type
+  dex.fdr.lst <- delta.meqtl.bcc.fdr.df[Type == i][Treatment == "dex", fdr]
+  veh.fdr.lst <- delta.meqtl.bcc.fdr.df[Type == i][Treatment == "veh", fdr]
+  
+  test.rslt <- NULL
+  if (length(dex.fdr.lst) == 0 || length(dex.fdr.lst) == 0)
+    test.rslt$p.value <- NaN else test.rslt   <- ks.test(dex.fdr.lst, veh.fdr.lst)
+
+  return(data.frame(Type = i, "p-value" = test.rslt$p.value))
+  }) %>%
+  bind_rows()
+
+delta.meqtl.bcc.fdr.df <- left_join(delta.meqtl.bcc.fdr.df, test.res.df) %>% setDT()
+
+delta.meqtl.bcc.fdr.df[Treatment == "veh", Treatment := "Baseline"]
+delta.meqtl.bcc.fdr.df[Treatment == "dex", Treatment := "GR-induced"]
+```
+
+Distribution of delta GR-response meQTL CpGs significant at FDR = 0.05 across 12 blood cell types. Percentage describes the CpG ration within a blood cell type to all meQTL CpGs in intersection between baseline and GR-response. Asterisk indicates the significance between GR-response and baseline for each blood cell type based on Kolmogorov-Smirnov test.
+
+```{r, fig.cap="Distribution of CpGs significant at FDR = 0.05 across 12 blood cell types"}
+plt.size <- 12
+
+sign.df <- subset(delta.meqtl.bcc.fdr.df, p.value <= 0.05) %>% 
+  group_by(Type, Treatment) %>% 
+  tally() %>% 
+  filter(n == max(n))
+
+distr.bcc.sign.plt <- ggplot(delta.meqtl.bcc.fdr.df, aes(x = Type, fill = Treatment, color = Treatment)) +
+  geom_bar(stat = "count", position = position_dodge(width = .9)) +
+  geom_text(
+    aes(label = scales::percent(stat(count) / length(intersect.cpgs), accuracy = 0.1)), 
+    stat = "count", vjust = -0.5, size = plt.size / 3, position = position_dodge(width = 0.9), color = "black") + 
+  geom_text(data = sign.df,
+            aes(y = n, label = "*"), stat = "identity", vjust = 0.05, hjust = 0, size = plt.size - 1, color = "black") +
+  theme_custom() +
+  theme(legend.position = "none",
+        legend.title = element_blank(),
+        panel.grid.major.x = element_line(color = "lightgrey", linewidth = 0.15),
+        panel.grid.major.y = element_line(color = "lightgrey", linewidth = 0.15)) +
+  scale_y_continuous(labels = function(x) format(x, scientific = TRUE)) +
+  labs(title = "",
+       x = "", y = "Frequency of CpGs") +
+  scale_color_manual(values = cbPalette) +
+  scale_fill_manual(values = alpha(cbPalette, 0.3))
+
+distr.bcc.sign.plt
+```
+
+## Distribution of DNAm values across blood cell types
+
+<!-- Extract intersected delta meQTL CpGs -->
+
+```{r eval = T, include = F}
+dnam.veh.subset <- dnam.veh[CpG_ID %in% intersect.cpgs] %>% mutate(Treatment = "Baseline")
+dnam.dex.subset <- dnam.dex[CpG_ID %in% intersect.cpgs] %>% mutate(Treatment = "GR-induced")
+
+dnam.subset     <- rbind(dnam.veh.subset,
+                         dnam.dex.subset) %>% 
+  melt(id = c("CpG_ID", "Treatment"))
+
+dnam.subset     <- left_join(delta.meqtl.bcc.fdr.df[, .(CpG_ID, Type, Treatment)], dnam.subset)
+```
+
+<!-- Plot -->
+
+```{r}
+plt.size <- 12
+
+dnam.bcc.sign.plt <- ggplot(dnam.subset, aes(x = Type, y = value, color = Treatment, fill = Treatment)) +
+  geom_boxplot(position = position_dodge(width = 0.8)) +
+  theme_custom() +
+  theme(legend.position = "bottom",
+        legend.title = element_blank(),
+        legend.text = element_text(size = plt.size),
+        panel.grid.major.x = element_line(color = "lightgrey", linewidth = 0.15),
+        panel.grid.major.y = element_line(color = "lightgrey", linewidth = 0.15)) +
+  labs(title = "",
+       x = "", y = "DNAm beta values") +
+  scale_color_manual(values = cbPalette) +
+  scale_fill_manual(values = alpha(cbPalette, 0.3))
+
+dnam.bcc.sign.plt
+```
+
+<!-- Calculate mean across sample for each CpG -->
+<!-- Don't include -->
+
+```{r eval=F, include = F}
+dnam.veh.mean <- dnam.veh.subset[, .(Mean = rowMeans(.SD)), by = CpG_ID][, Treatment := "Baseline"]
+dnam.dex.mean <- dnam.dex.subset[, .(Mean = rowMeans(.SD)), by = CpG_ID][, Treatment := "GR-response"]
+dnam.mean     <- rbind(dnam.veh.mean, dnam.dex.mean)
+
+## Merge DNAm mean values with the results of the cell type specific analysis -->
+delta.meqtl.bcc.fdr.df <- left_join(delta.meqtl.bcc.fdr.df, dnam.mean)
+ 
+## Plot 
+plt.size <- 8
+
+ggplot(delta.meqtl.bcc.fdr.df, aes(x = Type, y = Mean, fill = Treatment)) +
+  geom_bar(stat = "summary", fun = "mean", alpha = 1, position = position_dodge(width = .9)) +
+  theme(legend.position = "bottom", # c(0.9, 0.9), 
+        legend.title = element_blank(), 
+        legend.text = element_text(size = plt.size),
+        panel.grid.major = element_blank(), 
+        panel.background = element_blank(),
+        plot.title = element_text(size = plt.size), 
+        axis.title = element_text(size = plt.size),
+        axis.text = element_text(size = plt.size, colour = "black")) + 
+  labs(title = "DNA methylation beta values of significant CpGs at FDR <= 0.05 across 12 blood cell types",
+       x = "", y = "Average of DNAm beta values") +
+  scale_fill_manual(values = cbPalette) 
+```
+
+
+
+```{r include = F}
+nested <- (distr.bcc.all.plt|dnam.bcc.all.plt) +
+  patchwork::plot_annotation(tag_levels = 'A') +
+  plot_layout(nrow = 2, ncol = 1,
+              height = standard_height_mm * 3,
+              widths = unit(c(standard_width_mm_double * 2, standard_width_mm_double * 2), c('mm', 'mm')))
+
+ggsave("~/mpip/projects/dex-stim-human-array/output/plots/manuscript/m4_f4_alll_cpgs_supp.pdf",
+       nested, width = standard_width_mm_double * 2, height = standard_height_mm * 4, units = "mm", dpi = 600, scale = 1.1)
+
+#################
+
+nested <- (distr.bcc.sign.plt|dnam.bcc.sign.plt) +
+  patchwork::plot_annotation(tag_levels = 'A') +
+  plot_layout(nrow = 2, ncol = 1,
+              height = standard_height_mm * 3,
+              widths = unit(c(standard_width_mm_double * 2, standard_width_mm_double * 2), c('mm', 'mm')))
+
+ggsave("~/mpip/projects/dex-stim-human-array/output/plots/manuscript/m4_f5_meqtl_cpgs_supp.pdf",
+       nested, width = standard_width_mm_double * 2, height = standard_height_mm * 4, units = "mm", dpi = 600, scale = 1.1)
+
+##################
+
+nested <- (distr.bcc.all.plt|dnam.bcc.all.plt|distr.bcc.sign.plt|dnam.bcc.sign.plt) +
+  patchwork::plot_annotation(tag_levels = 'A') +
+  plot_layout(nrow = 2, ncol = 2,
+              height = standard_height_mm + 80,
+              widths = unit(c(standard_width_mm_double + 50, standard_width_mm_double + 50, standard_width_mm_double + 50, standard_width_mm_double + 50), c('mm', 'mm', 'mm', 'mm')))
+
+ggsave("~/mpip/projects/dex-stim-human-array/output/plots/manuscript/m4_f3_bc_spec_analysis_res_plt.pdf",
+       nested, width = standard_width_mm_double * 3, height = standard_height_mm *3, units = "mm", dpi = 600, scale = 1)
+```
+
+
+# ChromHMM enrichment
+***
+
+## GR-induced (delta)-meQTLs CpGs
+
+```{r path-update, eval = T, include = F}
+dir.pre <- "/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/"
+out.dir.pre <- "/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/integrative/matrixEQTL/meqtls/with_missingness/"
+```
+
+```{r  eval = T, include = F}
+chromhmm.blood.states <- readRDS(paste0(dir.pre, "data/annotation/chromHMM/chromHMM_blood_states.Rds"))
+chromhmm.brain.states <- readRDS(paste0(dir.pre, "data/annotation/chromHMM/chromHMM_brain_states.Rds"))
+
+states.lst <- elementMetadata(chromhmm.blood.states)[, "type"] %>% unique() %>% sort()
+
+epigenome <- fread(paste0(dir.pre, "/data/annotation/chromHMM/epigenomes.tsv"),
+                   col.names = c("EID", "ORDER", "GROUP", "MNEMONIC", "NAME"))
+
+chromhmm.states     <- readRDS(paste0(dir.pre, "data/annotation/chromHMM/chromhmm_states.Rds")) %>% setDT()
+
+chromhmm.states[COLOR.NAME == "Silver", COLOR.NAME := "Grey"] 
+chromhmm.states[COLOR.NAME == "White", COLOR.NAME := "Snow"] 
+
+cbPalette <- chromhmm.states$COLOR.NAME
+```
+
+### Blood
+
+Histone mark enrichment for the GR-induced meCpGs using 15 chromatin states from 18 blood and T- & B-cells types. The first figure denotes the fold enrichment / depletion as compared to baseline meCpGs, the second figure denotes significance based on the empirical P≤0.05 with 1,000 permutations.
+
+```{r}
+tissue      <- "blood"
+
+enrichment.rslts.fn <- paste0(out.dir.pre, "enrichment/cpgs/meqtl_cpgs_chromHMM_", tissue, "/", list.files(paste0(out.dir.pre, "enrichment/cpgs/meqtl_cpgs_chromHMM_", tissue)))
+
+pptx.template <- read_pptx(paste0(dir.pre, "output/plots/meqtls/enrichment/meqtl_snp_chromHMM_enrichment.pptx"))
+pptx.out      <- paste0(dir.pre, "output/plots/meqtls/enrichment/cpgs/meqtl_cpg_chromHMM_", tissue, "_enrichment.pptx")
+
+enrich.plts <- SavePPTXChromHMMEnrichmentPlot(enrichment.rslts.fn, tissue, epigenome, pptx.template, pptx.out, plt.txt.size = 12)
+```
+
+```{r include = T, fig.cap="The figure denotes the fold enrichment / depletion as compared to baseline meCpGs"}
+enrich.plts$or
+```
+
+```{r include = T, fig.cap="The figure denotes significance based on the empirical P≤0.05 with 1,000 permutations"}
+enrich.plts$pval
+```
+
+# IDEAS Enrichment
+***
+
+```{r eval = T, include = F}
+ideas.blood.states <- readRDS(paste0(dir.pre, "/data/public_data/ENCODE/IDEAS/all.blood.tissues.ideas.states.rds"))
+states.lst         <- elementMetadata(ideas.blood.states)[, "name"] %>% unique() %>% sort()
+```
+
+## Blood
+
+Histone mark enrichment for the GR-induced meCpGs using condensed annotation of 20 chromatin states from 18 blood and T- & B-cells types. The first figure denotes the fold enrichment / depletion as compared to baseline meCpGs, the second figure denotes significance based on the empirical P≤0.05 with 1,000 permutations.
+
+```{r}
+tissue <- "blood"
+
+enrichment.rslts.fn <- paste0(out.dir.pre, "enrichment/cpgs/meqtl_cpgs_IDEAS_", tissue, "/", list.files(paste0(out.dir.pre, "enrichment/cpgs/meqtl_cpgs_IDEAS_", tissue)))
+
+pptx.template <- read_pptx(paste0(dir.pre, "output/plots/meqtls/enrichment/meqtl_snp_chromHMM_enrichment.pptx"))
+pptx.out      <- paste0(dir.pre, "output/plots/meqtls/enrichment/meqtl_cpg_IDEAS_", tissue, "_enrichment.pptx")
+enrich.plts   <- SavePPTXChromHMMEnrichmentPlot(enrichment.rslts.fn, tissue, epigenome, pptx.template, pptx.out, plt.txt.size = 12)
+```
+
+```{r include = T, fig.cap="The figure denotes the fold enrichment / depletion as compared to baseline meCpGs"}
+enrich.plts$or
+```
+
+```{r include = T, fig.cap="The figure denotes significance based on the empirical P≤0.05 with 1,000 permutations"}
+enrich.plts$pval
+```

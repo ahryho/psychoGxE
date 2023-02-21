@@ -1,0 +1,123 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+library(data.table)
+library(arrow)
+library(dplyr)
+library(ggplot2)
+library(eulerr)
+```
+
+```{r}
+# Set up global params
+
+fc <- 0.02
+fdr <- 0.01
+
+assign(gene.type, "Gene_ID")
+
+# Load data
+out.dir.pre <- "~/bio/code/mpip/dex-stim-human-array/output/data/integrative/matrixEQTL/eqtms/"
+
+## map tbl
+map.ilmn.ensg.gene.df <- read_delim_arrow("~/bio/code/mpip/dex-stim-human-array/data/mapping/mapping_ilmn_ensg_gene.csv", delim = ";") %>% setDT()
+map.cpg.gene.ensg.df <- read_delim_arrow("~/bio/code/mpip/dex-stim-human-array/data/mapping/mapping_cpg_gene_ensg_full.csv", delim = ";") %>% setDT()
+
+## eQTMs
+col.names <- c("CpG_ID", "ENSG_ID", "beta", "t-stat", "p-value", "FDR")
+sign.eqtm.df <- read_delim_arrow(paste0(out.dir.pre, "eqtm_cis_result_delta_no_residuals_or_cov_beta.csv"), delim = ";") %>% setDT()
+
+sign.eqtm.df <- sign.eqtm.df[FDR < 0.05]
+
+# sign.eqtm.df <- left_join(sign.eqtm.df, map.df, by = c("ENSG_ID" = "Ensemble_ID")) 
+# sign.eqtm.df <- sign.eqtm.df %>% data.table()
+```
+
+
+## Significnat differential transcripts 
+
+```{r}
+sign.gex.df <- read_delim_arrow("~/bio/code/mpip/dex-stim-human-array/output/data/gene_expression/01_lmem_dea/lmem_dex_svs_1_5.csv", delim = "\t") %>% setDT()
+
+sign.gex.df <- sign.gex.df[pFDR < fdr][abs(FC) > fc]
+
+sign.gex.df[FC > fc, reg := "UP"]
+sign.gex.df[FC < fc, reg := "DOWN"]
+```
+
+### map ILMN_ID to ENSG_ID
+
+```{r}
+gex.ensg.ids <- map.ilmn.ensg.gene.df[Illumina_ID %in% sign.gex.df$Probe_Id, get(gene.type)] %>% unique() 
+paste0("ILMN IDs: ", length(unique(sign.gex.df$Probe_Id)))
+paste0("Gene symbols: ", length(unique(gex.ensg.ids)))
+```
+
+## Significnat dDMPs (FC > 0.02, FDR < 0.01)
+
+```{r}
+sign.dmp.df <- fread("~/bio/code/mpip/dex-stim-human-array/output/data/methylation/01_lmem_dnam/dnam_lmem_svs_pcs_rslt.txt")[FDR < fdr][abs(FC) > fc]
+
+sign.dmp.df[FC > fc, reg := "hyper"]
+sign.dmp.df[FC < fc, reg := "hypo"]
+```
+
+### map CpG_ID to ENSG_ID
+
+```{r}
+meth.ensg.ids <- map.cpg.gene.ensg.df[CpG_ID %in% sign.dmp.df$PROBE_ID, get(gene.type) ] %>% unique() 
+paste0("CpG IDs: ", length(sign.dmp.df$PROBE_ID))
+paste0("Gene symbols: ", length(unique(meth.ensg.ids)))
+```
+
+## Overlap
+
+```{r}
+fit <- euler(list(DMP = meth.ensg.ids, DEA = gex.ensg.ids))
+round(fit$original.value["DMP&DEG"] / length(gex.ensg.ids) * 100, 1)
+round(fit$original.value["DMP&DEG"] / length(meth.ensg.ids) * 100, 1)
+
+plot(fit,
+     quantities = list(type = c("counts", "percent")),
+     fill = c("red", "white"))
+```
+## Hypo vs hyper vs up vs down
+
+```{r}
+gex.gene.up.ids <- map.ilmn.ensg.gene.df[Illumina_ID %in% sign.gex.df[reg == "UP", Probe_Id], get(gene.type)] %>% unique()
+length(sign.gex.df[reg == "UP", Probe_Id]); length(unique(gex.gene.up.ids)); # 4466; 4486
+```
+
+```{r}
+gex.gene.down.ids <- map.ilmn.ensg.gene.df[Illumina_ID %in% sign.gex.df[reg == "DOWN", Probe_Id], get(gene.type) ] %>% unique()
+length(unique(sign.gex.df[reg == "DOWN", Probe_Id])); length(unique(gex.gene.down.ids)); # 4526; 4794
+```
+
+```{r}
+meth.gene.hyper.ids <- map.cpg.gene.ensg.df[CpG_ID %in% sign.dmp.df[reg == "hyper", PROBE_ID], get(gene.type) ] %>% unique()
+length(sign.dmp.df[reg == "hyper", PROBE_ID]); length(meth.gene.hyper.ids); # 2072; 1165
+```
+
+```{r}
+meth.gene.hypo.ids <- map.cpg.gene.ensg.df[CpG_ID %in% sign.dmp.df[reg == "hypo", PROBE_ID], get(gene.type) ] %>% unique()
+length(sign.dmp.df[reg == "hypo", PROBE_ID]); length(meth.gene.hypo.ids); # 7818; 3435
+```
+
+## Overlap
+
+```{r}
+fit2 <- euler(list(dea_up = gex.gene.up.ids,
+                   dea_down = gex.gene.down.ids,
+                   dmp_hypo = meth.gene.hypo.ids, 
+                   dmp_hyper = meth.gene.hyper.ids))
+
+plot(fit2,
+     quantities = list(type = c("counts", "percent")),
+     fills = palette.colors(palette = "Pastel 2")[6:9],
+     labels = c("UP", "DOWN", "HYPO", "HYPER")
+)
+```

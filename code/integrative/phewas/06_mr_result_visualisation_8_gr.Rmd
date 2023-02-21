@@ -1,0 +1,443 @@
+---
+title: "MR-PheWAS Analysis: MR Results Visualisation. 8 groups"
+subtitle: "Dexamethasone-Stimulated Human Array Project"
+author: 
+  - name: Anastasiia Hryhorzhevska
+    email: anastasiia_hry@psych.mpg.de
+    url: https://github.com/ahryho
+    affiliation: Max Planck Institute of Psychiatry
+    affiliation_url: https://www.psych.mpg.de/2664393/medizinische-genomforschung
+date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    df_print: paged
+    css: ../style.css
+    code_folding: hide
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r, include=FALSE}
+options(digits = 4, width = 100, stringsAsFactors = T)
+knitr::opts_chunk$set(echo = TRUE,
+                      tidy.opts = list(width.cutoff = 100),
+                      tidy=TRUE,
+                      fig.pos = "H",
+                      fig.width = 10,
+                      dpi = 1500,
+                      warning = FALSE, 
+                      message = FALSE, 
+                      cache = TRUE, 
+                      cache.lazy = FALSE,
+                      include = T,
+                      eval = T)
+
+# define DT as the standard printing method for data.frame
+library(knitr)
+library(DT)
+knit_print.data.frame <- function(x, ...) {
+  knit_print(DT::datatable(x,
+                           filter="top",
+                           rownames = FALSE,
+                           extensions = "FixedColumns",
+                           options = list(
+                             scrollX = TRUE,
+                             pageLength = 5
+                             
+                           )), ...)
+}
+
+registerS3method("knit_print", "data.frame", knit_print.data.frame)
+```
+
+```{r  include = F}
+library(TwoSampleMR)
+
+library(data.table)
+library(tidyverse)
+library(ggplot2)
+library(ggrepel)
+library(ggpubr)
+library(RColorBrewer)
+
+cbPalette <- c("grey", "#0072B2")
+```
+
+```{r include=FALSE}
+source("~/bio/code/mpip/dex-stim-human-array/code/integrative/phewas/00_functions.R")
+```
+
+
+```{r include = F}
+dir.pre         <- "~/bio/code/mpip/dex-stim-human-array/"
+phewas.dir      <- paste0(dir.pre, "data/integrative/phewas/8_cell_type_groups/")
+mr.res.dir      <- paste0(dir.pre, "output/data/integrative/phewas/8_cell_type_groups/")
+```
+
+The selected exposure list is loaded for later visualisation:
+
+```{r load-ao-db, include=FALSE}
+# selected exposures list
+ao <- readRDS(paste0(dir.pre, "data/public_data/PheWAS/IEU_List_Selected_Outcomes.rds"))
+```
+
+```{r load-mr-res, include = F}
+mr.res            <- readRDS(paste0(mr.res.dir, "mr_results_clumped.rds"))
+mr.res$cpg        <- unlist(strsplit(mr.res$exposure, "_"))[seq(from = 4, to = 4*nrow(mr.res), by = 4)] 
+
+mr.res.ao.fdr.sig <- fread(paste0(mr.res.dir, "/mr_results_clumped_fdrsign.csv"))
+# mr.res.ao.fdr.sig[["trait_category"]] <- mr.res.ao.fdr.sig$trait
+
+mr.res.ao.fdr.sig <- mr.res.ao.fdr.sig[trait_category != ""]
+
+mr.res.ao.fdr.sig$exposure.group <- as.factor(mr.res.ao.fdr.sig$exposure.group)
+table(mr.res.ao.fdr.sig$trait_category)
+```
+
+# Forest plot
+
+## Neuro-behavioral 
+
+```{r}
+table(mr.res.ao.fdr.sig[trait_category == "Neuro-behavioral", blood_type])
+```
+
+```{r}
+blood <- "Bmem"
+mr_res_forest_plt <- mr.res.ao.fdr.sig[trait_category == "Neuro-behavioral" & blood_type == blood]
+# mr_res_forest_plt <- left_join(mr_res_forest_plt, 
+#                                mr.res[, c("exposure.group", "SNP", "cpg", "outcome", "id.exposure", "id.outcome")], 
+#                                by = c("exposure.group", "SNP", "cpg", "outcome")) %>% 
+#   left_join(ao[, c("id", "nsnp")], by = c("id.outcome" = "id") )
+# plt <- my_mr_forest_plot(mr_res_forest_plt)
+# plt[[1]]
+
+mr_res_forest_plt <- generate_odds_ratios(mr_res_forest_plt)
+summary(mr_res_forest_plt)
+
+ggplot(mr_res_forest_plt, aes(paste(SNP, cpg, sep = " - "), or, colour = exposure_super_group))+
+  stat_summary(fun.data = mean_se, geom = "pointrange", na.rm = T) + 
+  coord_flip() +
+  labs(y = "Odds Ratio", x = "") + 
+  scale_color_manual(values = cbPalette) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+```
+
+```{r}
+
+mr_res_forest_plt$or <- signif(mr_res_forest_plt$or, 2)
+mr_res_forest_plt$b <- signif(mr_res_forest_plt$b, 2)
+mr_res_forest_plt$se <- signif(mr_res_forest_plt$se, 2)
+mr_res_forest_plt$or_lci95 <- signif(mr_res_forest_plt$or_lci95, 2)
+mr_res_forest_plt$or_uci95 <- signif(mr_res_forest_plt$or_uci95, 2)
+mr_res_forest_plt$fdr <- signif(mr_res_forest_plt$fdr, 2)
+
+tabletext <- cbind(c("Otcome", substr(mr_res_forest_plt$outcome, 1, 5)),
+                   c("SNP", mr_res_forest_plt$SNP),
+                   c("CpG", mr_res_forest_plt$cpg),
+                   c("beta", mr_res_forest_plt$b),
+                   c("SE", mr_res_forest_plt$se),
+                   c("fdr", mr_res_forest_plt$fdr),
+                   c("OR [95% CI]", paste(mr_res_forest_plt$or, "[", mr_res_forest_plt$or_lci95, ";", mr_res_forest_plt$or_uci95, "]")))
+
+forestplot::forestplot(labeltext = tabletext, 
+                       mean = c(NA, mr_res_forest_plt$or), 
+                       lower = c(NA, mr_res_forest_plt$or_lci95), 
+                       upper = c(NA, mr_res_forest_plt$or_uci95), 
+                       new_page = T,
+           xlog = F, 
+           col = fpColors(box="royalblue", line="darkblue"))
+```
+
+# Distribution of exposure SNP group per category 
+
+Results are checked to see if there are differences in distribution of exposure SNP groups per category:
+
+```{r}
+cross_table <- with(mr.res.ao.fdr.sig, table(exposure.group, trait_category))
+cat("Frequencies:\n")
+cross_table %>% print()
+cat("\nPercentages:\n")
+cross_table %>% prop.table(margin = 2) * 100 %>%
+      print()
+
+chisq.test(cross_table, simulate.p.value = F)
+```
+
+# Number of FDR corrected PheWAS associations per outcome trait category. 
+
+```{r include = F, eval = T}
+cnt.df <- mr.res.ao.fdr.sig[trait_category != ""] %>% 
+  group_by(blood_type, trait_category, exposure_super_group) %>%
+  tally() %>% 
+  group_by(blood_type) %>% 
+  mutate(freq = round(n / sum(n), 3)) %>%
+  setDT()
+```
+
+```{r include = F}
+plt.size <- 11
+```
+
+```{r out.width = "100%", fig.cap = "", include = T, eval = T}
+exposure.group_proportions <- mr.res.ao.fdr.sig[, .(blood_type, exposure_super_group)] %>%
+  group_by(blood_type, exposure_super_group) %>% 
+  tally()%>%
+  group_by() %>%
+  dplyr::mutate(freq = round(n / sum(n), 3))
+
+ggplt_bl_type <- lapply(unique(cnt.df$blood_type), function(blood){
+  ggplot(cnt.df[blood_type == blood], 
+         aes(x = trait_category, y = freq, fill = exposure_super_group, color = exposure_super_group)) +     
+    geom_bar(stat = "identity", position = "dodge") +
+    geom_hline(data = exposure.group_proportions[exposure.group_proportions$blood_type == blood, ], 
+               color = cbPalette,
+               aes(yintercept = freq)) +
+    # geom_text(data = cnt.df[blood_type == blood], #[freq > 0.01], 
+    #           aes(label = scales::percent(freq, accuracy = 1)),
+    #           position = position_dodge(width = -0.9), size = 3, color = "black") +
+  # facet_wrap(.~blood_type, nrow = 4) +
+  theme_minimal() +
+  theme(legend.title = element_blank(), 
+        legend.position = "bottom",
+        legend.text = element_text(size = plt.size, color = "black"),
+        panel.grid.major = element_line(alpha("grey", 0.25)), 
+        panel.grid.minor = element_line(alpha("grey", 0.25)),
+        panel.background = element_blank(),
+        axis.text.x = element_text(angle = 20, hjust = 0.5, size = plt.size, colour = "black"),
+        axis.text.y = element_text(size = plt.size, color = "black"),
+        axis.ticks.y = element_blank(),
+        strip.text.x = element_text(size = plt.size)) +
+    scale_fill_manual(values = alpha(cbPalette, 0.5)) + 
+    scale_color_manual(values = alpha(cbPalette, 0.75)) +
+    labs(x = "",
+         y = paste(blood, "SNP-CpG Proportion"))
+})
+```
+
+```{r}
+ggplt_bl_type[1]
+```
+
+```{r}
+ggplt_bl_type[2]
+```
+
+```{r}
+ggplt_bl_type[3]
+```
+
+```{r}
+ggplt_bl_type[4]
+```
+
+
+```{r include = F}
+# ggsave(plot = plot_hits_by_category, filename = paste0("./Plots/", Sys.Date(),
+#                                           "_PheWAS_Hits_by_Category.png"),
+#        device = "png", dpi = 600, width = 8, height = 6, bg = "transparent")
+
+```
+
+# Most frequent traits
+
+<!-- The most frequently observed outcome traits across the individual functional groups are as follows: -->
+
+## Neuro-behavioral
+
+```{r include  = T}
+frequent.traits <- mr.res.ao.fdr.sig[trait_category == "Neuro-behavioral",] %>%
+   group_by(blood_type, exposure_super_group, trait) %>%
+   summarize(n_trait = n()) %>%
+   arrange(desc(n_trait)) %>%
+   filter(trait %in% head(trait, 7)) %>%
+   ungroup() %>% mutate(exposure_super_group = factor(exposure_super_group))
+
+text.size <- 10
+
+   frequent.traits %>% mutate(trait = factor(trait, levels = rev(unique(trait)))) %>% 
+     ggplot(aes(x = trait, y = n_trait)) +
+        geom_bar(aes(fill = exposure_super_group, color = exposure_super_group), 
+                 stat = "identity", position = position_dodge()) +
+     scale_y_continuous(breaks = seq(0, max(frequent.traits$n_trait), by = 1)) +
+     coord_flip() +     
+     facet_wrap(. ~blood_type, nrow = 2, scales = "free") +
+     theme(legend.title = element_blank(), 
+           legend.position = "bottom",
+           legend.text = element_text(size = plt.size),
+           panel.background = element_blank(),
+           axis.title = element_text(size = text.size),
+           axis.text = element_text(size = text.size, colour = "black")) +
+     scale_fill_manual(values = alpha(cbPalette, 0.5)) +
+     scale_color_manual(values = alpha(cbPalette, 0.75)) +
+     labs(x = "", 
+          y = "No. of FDR-corrected associations")
+
+# ggsave(plot = plot_frequent_traits, filename = paste0("./Plots/", Sys.Date(),
+#                                           "_PheWAS_FrequentHits.png"),
+#        device = "png", dpi = 600, width = 8, height = 8, bg = "transparent")
+
+# print(plot_frequent_traits)
+   
+```
+
+## Immune System
+
+```{r include  = F}
+frequent.traits <- mr.res.ao.fdr.sig[trait_category == "Immune system",] %>%
+   group_by(blood_type, exposure_super_group, trait) %>%
+   summarize(n_trait = n()) %>%
+   arrange(desc(n_trait)) %>%
+   filter(trait %in% head(trait, 7)) %>%
+   ungroup() %>% mutate(exposure_super_group = factor(exposure_super_group))
+
+text.size <- 10
+
+   frequent.traits %>% mutate(trait = factor(trait, levels = rev(unique(trait)))) %>% 
+     ggplot(aes(x = trait, y = n_trait)) +
+        geom_bar(aes(fill = exposure_super_group, color = exposure_super_group), 
+                 stat = "identity", position = position_dodge()) +
+     scale_y_continuous(breaks = seq(0, max(frequent.traits$n_trait), by = 1)) +
+     coord_flip() +     
+     facet_wrap(. ~blood_type, nrow = 2, scales = "free") +
+     theme(legend.title = element_blank(), 
+           legend.position = "bottom",
+           legend.text = element_text(size = plt.size),
+           panel.background = element_blank(),
+           axis.title = element_text(size = text.size),
+           axis.text = element_text(size = text.size, colour = "black")) +
+     scale_fill_manual(values = alpha(cbPalette, 0.5)) +
+     scale_color_manual(values = alpha(cbPalette, 0.75)) +
+     labs(x = "", 
+          y = "No. of FDR-corrected associations")
+
+# ggsave(plot = plot_frequent_traits, filename = paste0("./Plots/", Sys.Date(),
+#                                           "_PheWAS_FrequentHits.png"),
+#        device = "png", dpi = 600, width = 8, height = 8, bg = "transparent")
+
+# print(plot_frequent_traits)
+   
+```
+
+## Disease
+
+```{r include  = F}
+frequent.traits <- mr.res.ao.fdr.sig[trait_category == "Disease",] %>%
+   group_by(blood_type, exposure_super_group, trait) %>%
+   summarize(n_trait = n()) %>%
+   arrange(desc(n_trait)) %>%
+   filter(trait %in% head(trait, 5)) %>%
+   ungroup() %>% mutate(exposure_super_group = factor(exposure_super_group))
+
+text.size <- 10
+
+   frequent.traits %>% mutate(trait = factor(trait, levels = rev(unique(trait)))) %>% 
+     ggplot(aes(x = trait, y = n_trait)) +
+        geom_bar(aes(fill = exposure_super_group, color = exposure_super_group), 
+                 stat = "identity", position = position_dodge()) +
+     coord_flip() +     
+     facet_wrap(. ~blood_type, nrow = 4, scales = "free") +
+     theme(legend.title = element_blank(), 
+           legend.position = "bottom",
+           legend.text = element_text(size = plt.size),
+           panel.background = element_blank(),
+           axis.title = element_text(size = text.size),
+           axis.text = element_text(size = text.size, colour = "black")) +
+     scale_fill_manual(values = alpha(cbPalette, 0.5)) +
+     scale_color_manual(values = alpha(cbPalette, 0.75)) +
+     labs(x = "", 
+          y = "No. of FDR-corrected associations")
+
+# ggsave(plot = plot_frequent_traits, filename = paste0("./Plots/", Sys.Date(),
+#                                           "_PheWAS_FrequentHits.png"),
+#        device = "png", dpi = 600, width = 8, height = 8, bg = "transparent")
+
+# print(plot_frequent_traits)
+   
+```
+
+# SNP/CpG Identification
+
+SNPs that show particularly frequent associations with phenotypes (generally and specifically in trait categories) are extracted
+
+```{r include = F}
+snp.hits <- mr.res.ao.fdr.sig %>%
+   add_count(trait_category, name = "n_trait_category") %>%
+   group_by(SNP, cpg, trait_category) %>%
+   add_count(SNP, name = "n_phenotypes") %>%
+   mutate(prop = n_phenotypes / n_trait_category) %>%
+   arrange(trait_category, desc(prop)) %>%
+   select(trait_category, SNP, cpg, exposure.group, n_phenotypes, prop) %>%
+   distinct() %>%
+   ungroup() %>%
+   add_count(SNP, name = "n_crosscategory") %>%
+   group_by(trait_category) %>%   slice_head(n = 10)
+
+
+snp.hits$phenotype_hits = "<NA>"
+
+for(i in 1:nrow(snp.hits)) {
+   
+   snp_temp = snp.hits$SNP[i]
+   trait_category_temp = snp.hits$trait_category[i]
+   
+   snp.hits[i, "phenotype_hits"] = mr.res.ao.fdr.sig %>%
+      filter(SNP == snp_temp & trait_category == trait_category_temp) %>%
+      pull(trait) %>%
+      unique() %>% 
+      paste(collapse = "; ")
+   
+   rm(snp_temp); rm(trait_category_temp)
+}
+```
+
+```{r}
+snp.hits
+```
+
+# SNP/CpG hits per blood type 
+
+## Bmem
+
+```{r}
+snp_hits_category_plots <- get_snp_hits_per_category_plot(mr.res.ao.fdr.sig, bl_type = "Bmem")
+
+ggarrange(plotlist = snp_hits_category_plots, common.legend = TRUE, legend = "bottom")
+```
+
+## CD4mem
+
+```{r}
+snp_hits_category_plots <- get_snp_hits_per_category_plot(mr.res.ao.fdr.sig, bl_type = "CD4mem")
+
+ggarrange(plotlist = snp_hits_category_plots, common.legend = TRUE, legend = "bottom")
+```
+
+## CD8mem
+
+```{r}
+snp_hits_category_plots <- get_snp_hits_per_category_plot(mr.res.ao.fdr.sig, bl_type = "CD8mem")
+
+ggarrange(plotlist = snp_hits_category_plots, common.legend = TRUE, legend = "bottom")
+```
+
+## Neutrophils
+
+```{r}
+snp_hits_category_plots <- get_snp_hits_per_category_plot(mr.res.ao.fdr.sig, bl_type = "Neu")
+
+ggarrange(plotlist = snp_hits_category_plots, common.legend = TRUE, legend = "bottom")
+```
+
+
+# Odd ration
+
+```{r}
+mr_res_ndd <- mr.res.ao.fdr.sig[trait_category == "Neuro-behavioral",]
+
+odd_ratio.df <- generate_odds_ratios(mr_res_ndd)
+```
+

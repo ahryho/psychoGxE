@@ -1,0 +1,462 @@
+---
+title: "Cell-type specific enrichment analysis"
+subtitle: Dexamethasone-Stimulated Human Array Project
+output:
+  pdf_document: default
+  html_notebook: default
+editor_options:
+  chunk_output_type: inline
+---
+
+```{r, warning=FALSE, message=FALSE}
+library(data.table)
+library(dplyr)
+library(ggplot2)
+library(corrplot)
+library(factoextra)
+library(viridis)
+library(ggpubr)
+library(UpSetR)
+```
+
+```{r}
+cbPalette <- c( "#0072B2", "#009E73", "#E69F00", "#F0E442", "#D55E00", "#CC79A7", "#56B4E9", "#999999")
+separate <- ""
+```
+
+```{r}
+treatment   <- "veh"
+
+pval.veh.df <- fread(paste0("~/bio/code/mpip/dex-stim-human-array/output/data/integrative/cell_type_enrichment/dnam_cell_type_enrichment_pvals_",treatment, separate, ".csv"))
+
+pval.veh.bcc.df <- pval.veh.df[, 1:13]
+```
+
+```{r}
+fdr.bcc.df <- matrix(p.adjust(as.vector(as.matrix(pval.veh.bcc.df[, 2:13])), method='fdr'), 
+                     ncol=12) %>%
+  data.frame()
+
+fdr.bcc.df <- cbind(pval.veh.bcc.df$CpG_ID, fdr.bcc.df)
+colnames(fdr.bcc.df) <- colnames(pval.veh.bcc.df)
+```
+
+```{r}
+sign.pval.df <- fdr.bcc.df %>% reshape2::melt(measure.vars = colnames(fdr.bcc.df)[2:13]) %>% setDT()
+colnames(sign.pval.df) <- c("CpG_ID", "Type", "fdr")
+
+sign.pval.df <- sign.pval.df[fdr <= 0.05]
+sign.pval.df <- na.omit(sign.pval.df)
+sign.pval.df
+```
+
+```{r}
+veh.sign.pval.df <- sign.pval.df
+veh.sign.pval.df[["Treatment"]] <- treatment
+```
+
+DEX
+
+```{r}
+treatment   <- "dex"
+
+pval.dex.df <- fread(paste0("~/bio/code/mpip/dex-stim-human-array/output/data/integrative/cell_type_enrichment/dnam_cell_type_enrichment_pvals_",treatment, separate, ".csv"))
+
+pval.dex.bcc.df <- pval.dex.df[, 1:13]
+```
+
+```{r}
+fdr.bcc.df <- matrix(p.adjust(as.vector(as.matrix(pval.dex.bcc.df[, 2:13])), method ='fdr'), 
+                     ncol=12) %>%
+  data.frame()
+
+fdr.bcc.df <- cbind(pval.dex.bcc.df$CpG_ID, fdr.bcc.df)
+colnames(fdr.bcc.df) <- colnames(pval.dex.bcc.df)
+```
+
+```{r}
+sign.pval.df <- fdr.bcc.df %>% reshape2::melt(measure.vars = colnames(fdr.bcc.df)[2:13]) %>% setDT()
+colnames(sign.pval.df) <- c("CpG_ID", "Type", "fdr")
+sign.pval.df <- sign.pval.df[fdr <= 0.05]
+
+sign.pval.df <- na.omit(sign.pval.df)
+sign.pval.df
+```
+
+```{r}
+dex.sign.pval.df <- sign.pval.df
+dex.sign.pval.df[["Treatment"]] <- treatment
+```
+
+## Distribution plots for Basleine and Dex together
+
+```{r}
+sign.pval.df <- rbind(veh.sign.pval.df, dex.sign.pval.df)
+intersect.cpgs <- intersect(dex.sign.pval.df$CpG_ID, veh.sign.pval.df$CpG_ID)
+
+print(paste0("Number of unique dex CpGs: ", length(unique(dex.sign.pval.df$CpG_ID))))
+print(paste0("Number of unique baseline CpGs: ", length(unique(veh.sign.pval.df$CpG_ID))))
+print(paste0("Number of intesecting CpGs: ", length(unique(intersect.cpgs))))
+```
+
+```{r}
+ggplot(sign.pval.df[CpG_ID %in% intersect.cpgs], aes(x = Type, fill = Treatment)) +
+  geom_bar(stat = "count", alpha = 1, position = position_dodge(width = .9)) +
+  # geom_text(aes(label =  scales::percent(prop.table(stat(count)))), 
+  # geom_text(aes(label = scales::percent(stat(count) / length(unique(sign.pval.df$CpG_ID)))), 
+  geom_text(aes(label = scales::percent(stat(count) / length(intersect.cpgs), accuracy = 0.1)), 
+            stat = "count", vjust = -0.5, size = 5, position = position_dodge(width = .9)) + 
+  theme(legend.position = "bottom", # c(0.9, 0.9), 
+        legend.title = element_blank(), 
+        legend.text = element_text(size = 18),
+        panel.grid.major = element_blank(), 
+        panel.background = element_blank(),
+        plot.title = element_text(size = 18), 
+        axis.title = element_text(size = 18),
+        axis.text = element_text(size = 18)) + 
+  labs(title = "Distribution of CpGs significant at FDR = 0.05 across 12 blood cell types",
+       x = "", y = "") +
+  scale_fill_manual(values = cbPalette[2:3]) 
+```
+
+```{r eval = F, include = F}
+ggplot(sign.pval.df, aes(x = Type, group = Treatment, fill = Treatment)) + 
+  geom_density(aes(y = stat(count) / nrow(fdr.bcc.df), color = Treatment), 
+           stat = "count",
+           alpha = 0.2) + 
+  scale_y_continuous(labels = scales::percent) + 
+  labs(x = " ", y = "", 
+       title = "Distribution of CpGs significant at FDR = 0.05 across 12 blood cell types") + 
+  theme(legend.title = element_blank(), 
+        legend.position = "bottom", 
+        panel.grid.major = element_blank(), 
+        panel.background = element_blank(), 
+        plot.title = element_text(size = 8), 
+        axis.title = element_text(size = 8), 
+        axis.text.x = element_text(angle = 0, hjust = 0.5)) +
+  scale_color_manual(values = cbPalette[2:3]) +
+  scale_fill_manual(values = cbPalette[2:3]) 
+```
+
+# Cell-type specificity on baseline-meQTLs
+
+```{r eval = F}
+meqtl.veh.df          <- fread("~/bio/code/mpip/dex-stim-human-array/output/data/integrative/matrixEQTL/meqtls/me-qtl_cis_result_veh_fdr_005.csv",
+                           col.names = c("SNP", "CpG_ID", "beta", "t-stat", "p-value", "FDR")) 
+veh.meqtl.cpgs        <- meqtl.veh.df$CpG_ID %>% unique() 
+sign.pval.veh.mqtl.df <- sign.pval.df[CpG_ID %in% veh.meqtl.cpgs, ] 
+
+sign.pval.cpgs.dex    <- sign.pval.veh.mqtl.df[Treatment == "dex", CpG_ID]
+sign.pval.cpgs.veh    <- sign.pval.veh.mqtl.df[Treatment == "veh", CpG_ID]
+
+intersect.cpgs        <- intersect(sign.pval.cpgs.dex, sign.pval.cpgs.veh) 
+sign.pval.veh.mqtl.df <- sign.pval.veh.mqtl.df[CpG_ID %in% intersect.cpgs,]
+
+print(paste0("Number of unique dex CpGs: ", length(unique(sign.pval.cpgs.dex))))
+print(paste0("Number of unique baseline CpGs: ", length(unique(sign.pval.cpgs.veh))))
+print(paste0("Number of intesecting CpGs: ", length(unique(intersect.cpgs))))
+
+blood.types.df.lst  <- split(sign.pval.veh.mqtl.df[Treatment == "veh"], by = "Type")
+blood.types.cpg.lst <- lapply(blood.types.df.lst, function(df) df$CpG_ID)
+
+saveRDS(blood.types.cpg.lst, "~/bio/code/mpip/dex-stim-human-array/output/data/integrative/cell_type_enrichment/veh_meqtl_cpgs_by_blood_cell_type_significant.rds")
+
+# SNPs
+
+sign.pval.veh.mqtl.with.snps.df <- left_join(sign.pval.veh.mqtl.df, meqtl.veh.df[,.(SNP, CpG_ID)])
+
+blood.types.df.lst  <- split(sign.pval.veh.mqtl.with.snps.df[sign.pval.veh.mqtl.with.snps.df$Treatment == "veh",], by = "Type")
+blood.types.snp.lst <- lapply(blood.types.df.lst, function(df) df$SNP)
+
+saveRDS(blood.types.snp.lst, "~/bio/code/mpip/dex-stim-human-array/output/data/integrative/cell_type_enrichment/veh_meqtl_snps_by_blood_cell_type_significant.rds")
+
+saveRDS(blood.types.df.lst, "~/bio/code/mpip/dex-stim-human-array/output/data/integrative/cell_type_enrichment/veh_meqtls_by_blood_cell_type_significant.rds")
+```
+
+# Cell-type specificity on GR-induced (delta)-meQTLs
+
+```{r}
+ind.meqtl.delta.df      <- fread("~/bio/code/mpip/dex-stim-human-array/output/data/integrative/matrixEQTL/meqtls/region_wise_independent_snps/me-qtl_cis_indp_rw_delta_fdr_005.csv") 
+delta.meqtl.cpgs        <- ind.meqtl.delta.df$CpG_ID %>% unique() 
+sign.pval.delta.mqtl.df <- sign.pval.df[CpG_ID %in% delta.meqtl.cpgs, ] 
+
+sign.pval.cpgs.dex <- sign.pval.delta.mqtl.df[Treatment == "dex", CpG_ID]
+sign.pval.cpgs.veh <- sign.pval.delta.mqtl.df[Treatment == "veh", CpG_ID]
+
+intersect.cpgs          <- intersect(sign.pval.cpgs.dex, sign.pval.cpgs.veh) 
+sign.pval.delta.mqtl.df <- sign.pval.delta.mqtl.df[CpG_ID %in% intersect.cpgs,]
+
+print(paste0("Number of unique dex CpGs: ", length(unique(sign.pval.cpgs.dex))))
+print(paste0("Number of unique baseline CpGs: ", length(unique(sign.pval.cpgs.veh))))
+print(paste0("Number of intesecting CpGs: ", length(unique(intersect.cpgs))))
+```
+
+
+## Check if changes are significant
+
+### Enrichment GR-meQTL CpGs over all CpGs
+
+```{r eval = F, include = F}
+blood.cell.types        <- unique(sign.pval.delta.mqtl.df$Type)
+
+enrich.res.df <- lapply(blood.cell.types, function(i){  # for each blood cell type
+  
+  ### DEX ###
+  
+  treatment <- "dex"
+  
+  type.sign      <- nrow(sign.pval.df[Type == i][Treatment == treatment])
+  type.non.sign  <- nrow(sign.pval.df[Treatment == treatment]) - type.sign
+  meqtl.sign     <- nrow(sign.pval.delta.mqtl.df[Type == i][Treatment == treatment])
+  meqtl.non.sign <- nrow(sign.pval.delta.mqtl.df[Treatment == treatment]) - meqtl.sign
+  
+  conf.mtrx <- matrix(c(type.sign, meqtl.sign, 
+                        type.non.sign, meqtl.non.sign), 
+                      2, 2, byrow = TRUE)
+  
+  test.rslt <- fisher.test(conf.mtrx)
+  dex.df    <- data.frame(Type = i, p.value = test.rslt$p.value, Treatment = treatment)
+  
+  ### Basleine ###
+  
+  treatment <- "veh"
+  
+  type.sign      <- nrow(sign.pval.df[Type == i][Treatment == treatment])
+  type.non.sign  <- nrow(sign.pval.df[Treatment == treatment]) - type.sign
+  meqtl.sign     <- nrow(sign.pval.delta.mqtl.df[Type == i][Treatment == treatment])
+  meqtl.non.sign <- nrow(sign.pval.delta.mqtl.df[Treatment == treatment]) - meqtl.sign
+  
+  conf.mtrx <- matrix(c(type.sign, meqtl.sign, 
+                        type.non.sign, meqtl.non.sign), 
+                      2, 2, byrow = TRUE)
+  
+  test.rslt <- fisher.test(conf.mtrx)
+  veh.df    <- data.frame(Type = i, p.value = test.rslt$p.value, Treatment = treatment)
+  
+  return(rbind(dex.df, veh.df))
+  }) %>%
+  bind_rows()
+
+reshape(enrich.res.df, idvar = "Type", timevar = "Treatment", direction = "wide")
+```
+
+```{r eval = F, include = F}
+ggplot(sign.pval.delta.mqtl.df, aes(x = Type, fill = Treatment)) +
+  geom_bar(stat = "count", alpha = 1, position = position_dodge(width = .9)) +
+  geom_text(aes(label = scales::percent(stat(count) / length(intersect.cpgs), accuracy = 1)), 
+            stat = "count", vjust = 1.5, size = 5, position = position_dodge(width = .9)) + 
+  geom_label(data = subset(enrich.res.df, p.value <= 0.05),
+            aes(label = "*"), 
+            stat = "count", vjust = -1.5, size = 5, position = position_dodge(width = 1)) +
+  theme(legend.position = "bottom", # c(0.9, 0.9), 
+        legend.title = element_blank(), 
+        legend.text = element_text(size = 18),
+        panel.grid.major = element_blank(), 
+        panel.background = element_blank(),
+        plot.title = element_text(size = 18), 
+        axis.title = element_text(size = 18),
+        axis.text = element_text(size = 18, colour = "black")) + 
+  labs(title = "Distribution of CpGs significant at FDR = 0.05 across 12 blood cell types",
+       x = "", y = "") +
+  scale_fill_manual(values = cbPalette[2:3]) 
+```
+
+### Distribution of P-values for each blood cell-type
+
+Kolmogorov-Smirnov test: Do 2 samples follow the same distribution?
+
+```{r}
+blood.cell.types        <- unique(sign.pval.delta.mqtl.df$Type)
+# blood.cell.types        <- levels(sign.pval.delta.mqtl.df$Type)
+
+test.res.df <- lapply(blood.cell.types, function(i){  # for each blood cell type
+  dex.fdr.lst <- sign.pval.delta.mqtl.df[Type == i][Treatment == "dex", fdr]
+  veh.fdr.lst <- sign.pval.delta.mqtl.df[Type == i][Treatment == "veh", fdr]
+  test.rslt   <- ks.test(dex.fdr.lst, veh.fdr.lst)
+ 
+  return(data.frame(Type = i, "p-value" = test.rslt$p.value))
+  }) %>%
+  bind_rows()
+
+sign.pval.delta.mqtl.df <- left_join(sign.pval.delta.mqtl.df, test.res.df)
+```
+
+```{r}
+ggplot(sign.pval.delta.mqtl.df, aes(x = -log10(fdr), fill = Treatment)) + 
+  geom_density(alpha = 0.3, aes(color = Treatment)) +
+  geom_text(data = subset(unique(sign.pval.delta.mqtl.df[, .(Treatment, Type, p.value)])),
+            aes(x = -Inf, y = -Inf, label = paste0("KS test = ", signif(p.value, 3))), 
+            hjust = -0.5, vjust = -15, size = 5, color = "black" ) +
+  facet_wrap(~ Type, scales = "free", ncol = 4) +
+  theme(legend.position = "bottom", # c(.9,.9), 
+        legend.title = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.background = element_blank(),
+        plot.title = element_text(size = 10, color = "black"),
+        axis.title = element_text(size = 10, color = "black"),
+        axis.text.x = element_text(size = 10, color = "black"),
+        axis.text.y = element_text(size = 10, color = "black"),
+        strip.text.x = element_text(size = 10, margin = margin())) +
+  labs(title = "Distribution of FDRs of GR-meQTL CpGs across bloss cell type", x = "-log10 FDR", y = "") +
+  scale_fill_manual(values = cbPalette[2:3]) +
+  scale_color_manual(values = cbPalette[2:3]) 
+```
+
+```{r}
+plt.size <- 12
+cbPalette <-c( "grey", "#0072B2")
+sign.pval.delta.mqtl.df <- sign.pval.delta.mqtl.df %>% setDT()
+sign.pval.delta.mqtl.df[Treatment == "veh", Treatment := "Baseline"]
+sign.pval.delta.mqtl.df[Treatment == "dex", Treatmenet := "GR-response"]
+
+ggplot(sign.pval.delta.mqtl.df, aes(x = Type, fill = Treatment)) +
+  geom_bar(stat = "count", alpha = 1, position = position_dodge(width = .9)) +
+  geom_text(aes(label = scales::percent(stat(count) / length(intersect.cpgs), accuracy = 0.1)), 
+            stat = "count", vjust = -0.5, size = plt.size / 3, position = position_dodge(width = 0.9)) + 
+  geom_text(data = subset(sign.pval.delta.mqtl.df[Treatment == "Baseline"], p.value <= 0.05),
+            aes(label = "*"), stat = "count", vjust = 0.05, hjust = 0., size = plt.size/2 + 2) +
+  theme(legend.position = "bottom", # c(0.9, 0.9), 
+        legend.title = element_blank(), 
+        legend.text = element_text(size = plt.size),
+        panel.grid.major = element_blank(), 
+        panel.background = element_blank(),
+        plot.title = element_text(size = plt.size), 
+        axis.title = element_text(size = plt.size),
+        axis.text = element_text(size = plt.size, colour = "black")) + 
+  labs(title = "Distribution of CpGs significant at FDR = 0.05 across 12 blood cell types",
+       x = "", y = "") +
+  scale_fill_manual(values = cbPalette) 
+```
+
+## Upset plot for DEX CpGs
+
+```{r}
+blood.types.df.lst  <- split(sign.pval.delta.mqtl.df[Treatment == "dex"], by = "Type")
+blood.types.cpg.lst <- lapply(blood.types.df.lst, function(df) df$CpG_ID)
+
+saveRDS(blood.types.cpg.lst, "~/bio/code/mpip/dex-stim-human-array/output/data/integrative/cell_type_enrichment/dex_meqtl_cpgs_by_blood_cell_type_significant.rds")
+
+upset(fromList(blood.types.cpg.lst), 
+      nsets = 12, 
+      nintersects = 75, 
+      queries = list(list(query = intersects, params = list("Bas"), color = "red"),
+                     list(query = intersects, params = list("Bmem"), color = "red"),
+                     list(query = intersects, params = list("Bnv"), color = "red"),
+                     list(query = intersects, params = list("CD4mem"), color = "red"),
+                     list(query = intersects, params = list("CD4nv"), color = "red"),
+                     list(query = intersects, params = list("CD8mem"), color = "red"),
+                     list(query = intersects, params = list("Neu"), color = "red")),
+      mainbar.y.label = "Number of intersections \ndex CpGs", 
+      keep.order = T,
+      order.by = "freq", 
+      text.scale = 1.3, 
+      line.size = 0.1,
+      mb.ratio = c(0.4, 0.6))
+```
+
+## Upset plot for DEX SNPs
+
+```{r}
+sign.pval.delta.mqtl.with.snps.df <- left_join(sign.pval.delta.mqtl.df, ind.meqtl.delta.df[,.(SNP, CpG_ID)])
+
+blood.types.df.lst  <- split(sign.pval.delta.mqtl.with.snps.df[sign.pval.delta.mqtl.with.snps.df$Treatment == "dex",], by = "Type")
+blood.types.snp.lst <- lapply(blood.types.df.lst, function(df) unique(df$SNP))
+
+# saveRDS(blood.types.df.lst, "~/bio/code/mpip/dex-stim-human-array/output/data/integrative/cell_type_enrichment/delta_meqtls_by_blood_cell_type_significant.rds")
+
+# saveRDS(blood.types.snp.lst, "~/bio/code/mpip/dex-stim-human-array/output/data/integrative/cell_type_enrichment/dex_meqtl_snps_by_blood_cell_type_significant.rds")
+
+upset(fromList(blood.types.snp.lst), 
+      nsets = 12, 
+      nintersects = 75, 
+      queries = list(list(query = intersects, params = list("Bas"), color = "red"),
+                     list(query = intersects, params = list("Bmem"), color = "red"),
+                     list(query = intersects, params = list("Bnv"), color = "red"),
+                     list(query = intersects, params = list("CD4mem"), color = "red"),
+                     list(query = intersects, params = list("CD4nv"), color = "red"),
+                     list(query = intersects, params = list("CD8mem"), color = "red"),
+                     list(query = intersects, params = list("Neu"), color = "red")),
+      mainbar.y.label = "Number of intersections \ndex SNPs", 
+      keep.order = T,
+      order.by = "freq", 
+      text.scale = 1.3, 
+      line.size = 0.1,
+      mb.ratio = c(0.4, 0.6))
+```
+
+# Cell-type specificity on DMPs
+
+```{r}
+dmps.sign.anno.fn <- "~/bio/code/mpip/dex-stim-human-array/output/data/methylation/02_dmp/dmps_fdr01_fc02_anno_full.csv"
+dmps.sign.anno.df <- fread(dmps.sign.anno.fn)
+dmps              <- dmps.sign.anno.df$PROBE_ID %>% unique() 
+sign.pval.dmps.df <- sign.pval.df[CpG_ID %in% dmps, ] 
+
+sign.pval.dmps.dex <- sign.pval.dmps.df[Treatment == "dex", CpG_ID]
+sign.pval.dmps.veh <- sign.pval.dmps.df[Treatment == "veh", CpG_ID]
+
+intersect.dmps     <- intersect(sign.pval.dmps.dex, sign.pval.dmps.veh) 
+sign.pval.dmps.df  <- sign.pval.dmps.df[CpG_ID %in% intersect.dmps,]
+
+print(paste0("Number of unique dex CpGs: ", length(unique(sign.pval.dmps.dex))))
+print(paste0("Number of unique baseline CpGs: ", length(unique(sign.pval.dmps.veh))))
+print(paste0("Number of intesecting CpGs: ", length(unique(intersect.dmps))))
+```
+
+Kolmogorov-Smirnov test: Do 2 samples follow the same distribution?
+
+```{r}
+blood.cell.types        <- unique(sign.pval.delta.mqtl.df$Type)
+
+test.res.df <- lapply(blood.cell.types, function(i){  # for each blood cell type
+  dex.fdr.lst <- sign.pval.dmps.df[Type == i][Treatment == "dex", fdr]
+  veh.fdr.lst <- sign.pval.dmps.df[Type == i][Treatment == "veh", fdr]
+  test.rslt   <- ks.test(dex.fdr.lst, veh.fdr.lst)
+ 
+  return(data.frame(Type = i, "p-value" = test.rslt$p.value))
+  }) %>%
+  bind_rows()
+
+sign.pval.dmps.df <- left_join(sign.pval.dmps.df, test.res.df)
+```
+
+```{r}
+ggplot(sign.pval.dmps.df, aes(x = -log10(fdr), fill = Treatment)) + 
+  geom_density(alpha = 0.3, aes(color = Treatment)) +
+  geom_text(data = subset(unique(sign.pval.dmps.df[, .(Treatment, Type, p.value)])),
+            aes(x = -Inf, y = -Inf, label = paste0("KS test = ", signif(p.value, 3))), 
+            hjust = -0.5, vjust = -15, size = 5, color = "black" ) +
+  facet_wrap(~ Type, scales = "free", ncol = 4) +
+  theme(legend.position = "bottom", # c(.9,.9), 
+        legend.title = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.background = element_blank(),
+        plot.title = element_text(size = 10, color = "black"),
+        axis.title = element_text(size = 10, color = "black"),
+        axis.text.x = element_text(size = 10, color = "black"),
+        axis.text.y = element_text(size = 10, color = "black"),
+        strip.text.x = element_text(size = 10, margin = margin())) +
+  labs(title = "Distribution of FDRs of GR-DMPs across bloss cell type", x = "-log10 FDR", y = "") +
+  scale_fill_manual(values = cbPalette[2:3]) +
+  scale_color_manual(values = cbPalette[2:3]) 
+```
+
+```{r}
+ggplot(sign.pval.dmps.df, aes(x = Type, fill = Treatment)) +
+  geom_bar(stat = "count", alpha = 1, position = position_dodge(width = .9)) +
+  geom_text(aes(label = scales::percent(stat(count) / length(intersect.dmps), accuracy = 0.1)), 
+            stat = "count", vjust = -0.1, size = 5, position = position_dodge(width = .9)) + 
+  geom_text(data = subset(sign.pval.dmps.df[Treatment == "veh"], p.value <= 0.05),
+             aes(label = "*"), stat = "count", vjust = 0.15,size = 16) +
+  theme(legend.position = "bottom", # c(0.9, 0.9), 
+        legend.title = element_blank(), 
+        legend.text = element_text(size = 16),
+        panel.grid.major = element_blank(), 
+        panel.background = element_blank(),
+        plot.title = element_text(size = 16), 
+        axis.title = element_text(size = 16),
+        axis.text = element_text(size = 16, colour = "black")) + 
+  labs(title = "Distribution of GR-DMPs across 12 blood cell types",
+       x = "", y = "") +
+  scale_fill_manual(values = cbPalette[2:3]) 
+```

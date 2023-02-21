@@ -1,0 +1,478 @@
+---
+title: "Epistress Score"
+subtitle: "Dexamethasone-Stimulated Human Array Project"
+author: 
+  - name: Anastasiia Hryhorzhevska
+    email: anastasiia_hry@psych.mpg.de
+    url: https://github.com/ahryho
+    affiliation: Max Planck Institute of Psychiatry
+    affiliation_url: https://www.psych.mpg.de/2664393/medizinische-genomforschung
+date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
+classoption: fleqn
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    df_print: paged
+    css: ../../../style.css
+    code_folding: hide
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r include=FALSE}
+knitr::opts_knit$set(root.dir = '~/bio/code/mpip/dex-stim-human-array/')
+
+options(digits = 4, width = 100, stringsAsFactors = T)
+knitr::opts_chunk$set(echo = TRUE,
+                      tidy.opts = list(width.cutoff = 100),
+                      tidy=TRUE,
+                      fig.pos = "H",
+                      fig.width = 10,
+                      dpi = 150,
+                      warning = FALSE, 
+                      message = FALSE,
+                      include = FALSE,
+                      cache = TRUE,
+                      eval = TRUE,
+                      cache.lazy = FALSE)
+
+# define DT as the standard printing method for data.frame
+library(knitr)
+library(DT)
+
+knit_print.data.frame <- function(x, ...) {
+  knit_print(DT::datatable(x,
+                           filter="top",
+                           rownames = FALSE,
+                           extensions = "FixedColumns",
+                           options = list(
+                             scrollX = TRUE,
+                             pageLength = 5
+                             
+                           )), ...)
+}
+
+registerS3method("knit_print", "data.frame", knit_print.data.frame)
+```
+
+```{r}
+setwd("~/bio/code/mpip/dex-stim-human-array/")
+source("code/integrative/util.R")
+```
+
+```{r}
+library(data.table)
+library(dplyr)
+
+library(ggplot2)
+library(corrplot)
+library(factoextra)
+library(viridis)
+library(ggstatsplot)
+library(gridExtra)
+```
+
+```{r}
+cbPalette <- c("grey", "#0072B2")
+```
+
+```{r}
+pheno <- LoadPheno()
+```
+
+```{r prepare-base}
+epistress.score.base.df <- fread("output/data/public_data/Provencal2019_Hipocampal_CpGs/mpip_epistress_score_veh.csv")
+bcc.base.df             <- LoadBCC()
+pheno.base.df           <- pheno[pheno$Dex == 0,]
+bcc.base.df             <- left_join(pheno.base.df[, c("DNA_ID", "DNAm_ID")], bcc.base.df)
+```
+
+```{r prepare-dex}
+epistress.score.dex.df <- fread("output/data/public_data/Provencal2019_Hipocampal_CpGs/mpip_epistress_score_dex.csv")
+pheno.dex.df           <- pheno[pheno$Dex == 1,]
+bcc.dex.df             <- LoadBCC(is.dex = T)
+bcc.dex.df             <- left_join(pheno.dex.df[, c("DNA_ID", "DNAm_ID")], bcc.dex.df)
+```
+
+```{r prepare-delta}
+epistress.score.delta.df  <- fread("output/data/public_data/Provencal2019_Hipocampal_CpGs/mpip_epistress_score_delta.csv")
+bcc.abs.delta.df              <- bcc.dex.df[, -c(1,2)] - bcc.base.df[, -c(1,2)]
+bcc.abs.delta.df              <- cbind(bcc.base.df[, "DNA_ID"], bcc.abs.delta.df)
+colnames(bcc.abs.delta.df)[1] <- "DNA_ID"
+
+# bcc.relative.delta.df         <- abs(bcc.dex.df[, -c(1,2)] - bcc.base.df[, -c(1,2)])/(max(bcc.dex.df[, -c(1,2)] , bcc.base.df[, -c(1,2)]))
+bcc.relative.delta.df         <- (bcc.dex.df[, -c(1,2)] - bcc.base.df[, -c(1,2)])/ bcc.base.df[, -c(1,2)]
+bcc.relative.delta.df         <- cbind(bcc.base.df[, "DNA_ID"], bcc.relative.delta.df)
+colnames(bcc.relative.delta.df)[1] <- "DNA_ID"
+```
+
+```{r}
+base.df                 <- left_join(bcc.base.df, epistress.score.base.df)
+dex.df                  <- left_join(bcc.dex.df, epistress.score.dex.df)
+
+# bcc.delta.df            <- bcc.abs.delta.df
+bcc.delta.df            <- bcc.relative.delta.df
+delta.df                <- left_join( bcc.delta.df, epistress.score.delta.df)
+
+delta.score.base.bcc.df <- left_join( bcc.base.df, epistress.score.delta.df)
+```
+
+# Methods
+
+## Data
+  + __Baseline Epistress Score__: is calculated using 23 CpG from EPIC DNAm data (beta-values) which were obtained at _baseline_
+  + __GR-induced (dex) Epistress Score__: is calculated using 23 CpG from EPIC DNAm data (beta-values) which were obtained 3 hr after stimulation with _dexamethasone_
+  + __Delta Epistress Score__: is calculated using 23 CpG from EPIC DNAm data (beta-values) which were obtained using residuals from linear regression models for baseline DNAm and GR-induced DNAm (delta DNAm)
+  
+   $$\Delta CpG = res_{dex} − res_{base}$$
+          
+   $$res_{base} \sim  CpG_{base} − (\beta_0 + \beta_{1−9} \times Cov)$$
+      
+   $$res_{dex} \sim  CpG_{dex} − (\beta_0 + \beta_{1−9} \times Cov)$$
+      
+      Cov = {Sex, Age, BMI, MDD Status, SmokingScore, SV, PC}
+      
+      where
+
+        Smoking Score: smoking score estimated from DNAm data using Elliot's CpGs
+        SV: first three significant Surrogate Variables calculated based on DNAm 
+        PC: first two significant PCs computed using genotype data and PLINK MDS method 
+  
+  
+  + __Baseline BCCs__: cellular proportion estimates using EPIC DNAm data which were obtained at _baseline_, _EpiDISH_ R-package with RPC as a reference-based method and the reference dataset of 12 cell types (neutrophils, eosinophils, basophils, monocytes, naïve and memory B cells, naïve and memory CD4T and CD8T cells, natural killer, and T regulatory cells) from _Salas et. al 2022_ publication
+  + __GR-induced (dex) BCCs__: cellular proportion estimates using EPIC DNAm data which were obtained 3 hr after stimulation with _dexamethasone_
+  + __absolute delta BBCs__: the absolute difference between baseline BCCs and GR-induced BBCs
+  + __relative delta BBCs__: the relative difference between baseline BCCs and GR-induced BBCs calculated as 
+  $$\frac{dex BBCs - baseline BCCs}{baseline BCCs}$$
+
+## Blood cell estimates
+
+```{r}
+bcc.base.melt.df <- reshape2::melt(bcc.base.df[, -c(1,2)])
+bcc.base.melt.df[["Treatment"]] <- "Baseline"
+
+bcc.dex.melt.df <- reshape2::melt(bcc.dex.df[, -c(1,2)])
+bcc.dex.melt.df[["Treatment"]] <- "GR-induced"
+
+bcc.melt.df <- rbind(bcc.base.melt.df, bcc.dex.melt.df)
+
+bcc.abs.delta.melt.df <- reshape2::melt(bcc.abs.delta.df[, -1])
+bcc.relative.delta.melt.df <- reshape2::melt(bcc.relative.delta.df[, -1])
+```
+
+```{r, include  = T}
+ggplot(bcc.melt.df, aes(x = variable, y = value, fill = Treatment)) +
+  geom_boxplot(alpha = 0.2, aes(color = Treatment)) +
+  theme(legend.position = "bottom", 
+        legend.title = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.background = element_blank(),
+        plot.title = element_text(size = 10),
+        axis.title = element_text(size = 10),
+        axis.text.x = element_text(angle = 45, hjust = 1)) + 
+  labs(x = " ", y = "Cellular proportion estimates") +
+  scale_fill_manual(values = cbPalette) +
+  scale_color_manual(values = cbPalette)
+```
+
+```{r, include = T}
+ggplot(bcc.abs.delta.melt.df, aes(x = variable, y = value)) +
+  geom_boxplot(alpha = 0.2) +
+  geom_hline(yintercept = 0, color = "red", size = 0.2) +
+  theme(legend.position = "bottom", 
+        legend.title = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.background = element_blank(),
+        plot.title = element_text(size = 10),
+        axis.title = element_text(size = 10),
+        axis.text.x = element_text(angle = 45, hjust = 1)) + 
+  labs(x = " ", y = "Absolute change in BBCs after GR-stimulation")
+```
+
+# Epistress Score vs BBCs
+
+```{r global-params}
+base.plt.title  <- "Baseline BBCs vs baseline epistress score "
+dex.plt.title   <- "GR-induced BBCs vs GR-induced epistress score"
+delta.plt.title <- "Relative change in BBCs vs delta epistress score"
+delta.sc.base.bcc.plt.title <- "Baseline BBCs vs delta epistress score"
+
+xlab            <- "Epistress Score"
+```
+
+## Basophils
+
+```{r bas, include = T}
+y    <- "Bas"
+ylab <- "Basophils"
+
+base.plt <- ggscatterstats(data = base.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                           ylab = ylab, xlab = xlab, 
+                           title = base.plt.title)
+dex.plt <- ggscatterstats(data = dex.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                          ylab = ylab, xlab = xlab, 
+                          title = dex.plt.title)
+delta.plt <- ggscatterstats(data = delta.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                            ylab = ylab, xlab = xlab, 
+                            title = delta.plt.title)
+delta.sc.base.bcc.plt <- ggscatterstats(data = delta.score.base.bcc.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                                        ylab = ylab, xlab = xlab, 
+                                        title = delta.sc.base.bcc.plt.title)
+
+grid.arrange(arrangeGrob(base.plt, delta.sc.base.bcc.plt, ncol = 2))
+grid.arrange(arrangeGrob(dex.plt, delta.plt, ncol = 2))
+```
+
+## Neutrophils
+
+```{r neu, include = T}
+y    <- "Neu"
+ylab <- "Neutrophils"
+
+base.plt <- ggscatterstats(data = base.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                           ylab = ylab, xlab = xlab, 
+                           title = base.plt.title)
+dex.plt <- ggscatterstats(data = dex.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                          ylab = ylab, xlab = xlab, 
+                          title = dex.plt.title)
+delta.plt <- ggscatterstats(data = delta.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                            ylab = ylab, xlab = xlab, 
+                            title = delta.plt.title)
+delta.sc.base.bcc.plt <- ggscatterstats(data = delta.score.base.bcc.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                                        ylab = ylab, xlab = xlab, 
+                                        title = delta.sc.base.bcc.plt.title)
+
+grid.arrange(arrangeGrob(base.plt, delta.sc.base.bcc.plt, ncol = 2))
+grid.arrange(arrangeGrob(dex.plt, delta.plt, ncol = 2))
+```
+
+## Eosonphils
+
+```{r eos, include = T}
+y    <- "Eos"
+ylab <- "Eosonphils"
+
+base.plt <- ggscatterstats(data = base.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                           ylab = ylab, xlab = xlab, 
+                           title = base.plt.title)
+dex.plt <- ggscatterstats(data = dex.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                          ylab = ylab, xlab = xlab, 
+                          title = dex.plt.title)
+delta.plt <- ggscatterstats(data = delta.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                            ylab = ylab, xlab = xlab, 
+                            title = delta.plt.title)
+delta.sc.base.bcc.plt <- ggscatterstats(data = delta.score.base.bcc.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                                        ylab = ylab, xlab = xlab, 
+                                        title = delta.sc.base.bcc.plt.title)
+
+grid.arrange(arrangeGrob(base.plt, delta.sc.base.bcc.plt, ncol = 2))
+grid.arrange(arrangeGrob(dex.plt, delta.plt, ncol = 2))
+```
+
+## Monocytes
+
+```{r mono, include = T}
+y    <- "Mono"
+ylab <- "Monocytes"
+
+base.plt <- ggscatterstats(data = base.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                           ylab = ylab, xlab = xlab, 
+                           title = base.plt.title)
+dex.plt <- ggscatterstats(data = dex.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                          ylab = ylab, xlab = xlab, 
+                          title = dex.plt.title)
+delta.plt <- ggscatterstats(data = delta.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                            ylab = ylab, xlab = xlab, 
+                            title = delta.plt.title)
+delta.sc.base.bcc.plt <- ggscatterstats(data = delta.score.base.bcc.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                                        ylab = ylab, xlab = xlab, 
+                                        title = delta.sc.base.bcc.plt.title)
+
+grid.arrange(arrangeGrob(base.plt, delta.sc.base.bcc.plt, ncol = 2))
+grid.arrange(arrangeGrob(dex.plt, delta.plt, ncol = 2))
+```
+
+## Natural Killer
+
+```{r nk, include = T}
+y    <- "NK"
+ylab <- "Natural Killer"
+
+base.plt <- ggscatterstats(data = base.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                           ylab = ylab, xlab = xlab, 
+                           title = base.plt.title)
+dex.plt <- ggscatterstats(data = dex.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                          ylab = ylab, xlab = xlab, 
+                          title = dex.plt.title)
+delta.plt <- ggscatterstats(data = delta.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                            ylab = ylab, xlab = xlab, 
+                            title = delta.plt.title)
+delta.sc.base.bcc.plt <- ggscatterstats(data = delta.score.base.bcc.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                                        ylab = ylab, xlab = xlab, 
+                                        title = delta.sc.base.bcc.plt.title)
+
+grid.arrange(arrangeGrob(base.plt, delta.sc.base.bcc.plt, ncol = 2))
+grid.arrange(arrangeGrob(dex.plt, delta.plt, ncol = 2))
+```
+
+## T Regulatory
+
+```{r treg, include = T}
+y    <- "Treg"
+ylab <- "T Regulatory"
+
+base.plt <- ggscatterstats(data = base.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                           ylab = ylab, xlab = xlab, 
+                           title = base.plt.title)
+dex.plt <- ggscatterstats(data = dex.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                          ylab = ylab, xlab = xlab, 
+                          title = dex.plt.title)
+delta.plt <- ggscatterstats(data = delta.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                            ylab = ylab, xlab = xlab, 
+                            title = delta.plt.title)
+delta.sc.base.bcc.plt <- ggscatterstats(data = delta.score.base.bcc.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                                        ylab = ylab, xlab = xlab, 
+                                        title = delta.sc.base.bcc.plt.title)
+
+grid.arrange(arrangeGrob(base.plt, delta.sc.base.bcc.plt, ncol = 2))
+grid.arrange(arrangeGrob(dex.plt, delta.plt, ncol = 2))
+```
+
+## Memory CD4T
+
+```{r cd4mem, include = T}
+y    <- "CD4mem"
+ylab <- "Memory CD4T Cells"
+
+base.plt <- ggscatterstats(data = base.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                           ylab = ylab, xlab = xlab, 
+                           title = base.plt.title)
+dex.plt <- ggscatterstats(data = dex.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                          ylab = ylab, xlab = xlab, 
+                          title = dex.plt.title)
+delta.plt <- ggscatterstats(data = delta.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                            ylab = ylab, xlab = xlab, 
+                            title = delta.plt.title)
+delta.sc.base.bcc.plt <- ggscatterstats(data = delta.score.base.bcc.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                                        ylab = ylab, xlab = xlab, 
+                                        title = delta.sc.base.bcc.plt.title)
+
+grid.arrange(arrangeGrob(base.plt, delta.sc.base.bcc.plt, ncol = 2))
+grid.arrange(arrangeGrob(dex.plt, delta.plt, ncol = 2))
+```
+
+## Naive CD4T
+
+```{r cd4nv, include = T}
+y    <- "CD4nv"
+ylab <- "Naive CD4T Cells"
+
+base.plt <- ggscatterstats(data = base.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                           ylab = ylab, xlab = xlab, 
+                           title = base.plt.title)
+dex.plt <- ggscatterstats(data = dex.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                          ylab = ylab, xlab = xlab, 
+                          title = dex.plt.title)
+delta.plt <- ggscatterstats(data = delta.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                            ylab = ylab, xlab = xlab, 
+                            title = delta.plt.title)
+delta.sc.base.bcc.plt <- ggscatterstats(data = delta.score.base.bcc.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                                        ylab = ylab, xlab = xlab, 
+                                        title = delta.sc.base.bcc.plt.title)
+
+grid.arrange(arrangeGrob(base.plt, delta.sc.base.bcc.plt, ncol = 2))
+grid.arrange(arrangeGrob(dex.plt, delta.plt, ncol = 2))
+```
+
+## Memory CD8T
+
+```{r cd9mem, include = T}
+y    <- "CD8mem"
+ylab <- "Memory CD8T Cells"
+
+base.plt <- ggscatterstats(data = base.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                           ylab = ylab, xlab = xlab, 
+                           title = base.plt.title)
+dex.plt <- ggscatterstats(data = dex.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                          ylab = ylab, xlab = xlab, 
+                          title = dex.plt.title)
+delta.plt <- ggscatterstats(data = delta.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                            ylab = ylab, xlab = xlab, 
+                            title = delta.plt.title)
+delta.sc.base.bcc.plt <- ggscatterstats(data = delta.score.base.bcc.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                                        ylab = ylab, xlab = xlab, 
+                                        title = delta.sc.base.bcc.plt.title)
+
+grid.arrange(arrangeGrob(base.plt, delta.sc.base.bcc.plt, ncol = 2))
+grid.arrange(arrangeGrob(dex.plt, delta.plt, ncol = 2))
+```
+
+## Naive CD8T
+
+```{r cd8nv, include = T}
+y    <- "CD8nv"
+ylab <- "Naive CD8T Cells"
+
+base.plt <- ggscatterstats(data = base.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                           ylab = ylab, xlab = xlab, 
+                           title = base.plt.title)
+dex.plt <- ggscatterstats(data = dex.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                          ylab = ylab, xlab = xlab, 
+                          title = dex.plt.title)
+delta.plt <- ggscatterstats(data = delta.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                            ylab = ylab, xlab = xlab, 
+                            title = delta.plt.title)
+delta.sc.base.bcc.plt <- ggscatterstats(data = delta.score.base.bcc.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                                        ylab = ylab, xlab = xlab, 
+                                        title = delta.sc.base.bcc.plt.title)
+
+grid.arrange(arrangeGrob(base.plt, delta.sc.base.bcc.plt, ncol = 2))
+grid.arrange(arrangeGrob(dex.plt, delta.plt, ncol = 2))
+```
+
+## Memory B Cells
+
+```{r bmem, include = T}
+y    <- "Bmem"
+ylab <- "Memory B Cells"
+
+base.plt <- ggscatterstats(data = base.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                           ylab = ylab, xlab = xlab, 
+                           title = base.plt.title)
+dex.plt <- ggscatterstats(data = dex.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                          ylab = ylab, xlab = xlab, 
+                          title = dex.plt.title)
+delta.plt <- ggscatterstats(data = delta.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                            ylab = ylab, xlab = xlab, 
+                            title = delta.plt.title)
+delta.sc.base.bcc.plt <- ggscatterstats(data = delta.score.base.bcc.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                                        ylab = ylab, xlab = xlab, 
+                                        title = delta.sc.base.bcc.plt.title)
+
+grid.arrange(arrangeGrob(base.plt, delta.sc.base.bcc.plt, ncol = 2))
+grid.arrange(arrangeGrob(dex.plt, delta.plt, ncol = 2))
+```
+
+## Naive B Cells
+
+```{r bnv, include = T}
+y    <- "Bnv"
+ylab <- "Naive B Cells"
+
+base.plt <- ggscatterstats(data = base.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                           ylab = ylab, xlab = xlab, 
+                           title = base.plt.title)
+dex.plt <- ggscatterstats(data = dex.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                          ylab = ylab, xlab = xlab, 
+                          title = dex.plt.title)
+delta.plt <- ggscatterstats(data = delta.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                            ylab = ylab, xlab = xlab, 
+                            title = delta.plt.title)
+delta.sc.base.bcc.plt <- ggscatterstats(data = delta.score.base.bcc.df, x = EpiStressScore, y = !!ensym(y), bf.message = FALSE, 
+                                        ylab = ylab, xlab = xlab, 
+                                        title = delta.sc.base.bcc.plt.title)
+
+grid.arrange(arrangeGrob(base.plt, delta.sc.base.bcc.plt, ncol = 2))
+grid.arrange(arrangeGrob(dex.plt, delta.plt, ncol = 2))
+```

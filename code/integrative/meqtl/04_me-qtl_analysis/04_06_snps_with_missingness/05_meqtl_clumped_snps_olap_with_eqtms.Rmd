@@ -1,0 +1,347 @@
+---
+title: "cis-meQTLs analysis: Genotype with missingness. LD clumped results. meQTL vs. eQTM"
+subtitle: "Dexamethasone-Stimulated Human Array Project"
+author: 
+  - name: Anastasiia Hryhorzhevska
+    email: anastasiia_hry@psych.mpg.de
+    url: https://github.com/ahryho
+    affiliation: Max Planck Institute of Psychiatry
+    affiliation_url: https://www.psych.mpg.de/2664393/medizinische-genomforschung
+date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    df_print: paged
+    css: ../../../style.css
+    code_folding: hide
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r, include=FALSE}
+options(digits = 4, width = 100, stringsAsFactors = T)
+knitr::opts_chunk$set(echo = TRUE,
+                      tidy.opts = list(width.cutoff = 100),
+                      tidy=TRUE,
+                      fig.pos = "H",
+                      dpi = 200,
+                      warning = FALSE, 
+                      message = FALSE, 
+                      include = TRUE,
+                      cache = TRUE, 
+                      cache.lazy = FALSE)
+
+# define DT as the standard printing method for data.frame
+library(knitr)
+library(DT)
+knit_print.data.frame <- function(x, ...) {
+  knit_print(DT::datatable(x,
+                           filter="top",
+                           rownames = FALSE,
+                           extensions = "FixedColumns",
+                           options = list(
+                             scrollX = TRUE,
+                             pageLength = 5
+                             
+                           )), ...)
+}
+
+registerS3method("knit_print", "data.frame", knit_print.data.frame)
+
+library(data.table)
+library(arrow)
+library(dplyr)
+
+library(ggplot2)
+library(ggrepel)
+library(scales)
+library(GGally)
+library(viridis)
+library(eulerr)
+library(ggVennDiagram)
+library(corrplot)
+
+library(here)
+```
+
+```{r include = F, eval = T}
+source("~/mpip/projects/dex-stim-human-array/code/integrative/util.R")
+```
+
+# Introduction
+
+## meQTLs
+
+This markdown provides comparison between two meQTL analysis after LD clumping. meQTL analysis were done using the R package _MatrixEQTL_. LD clumping was done using PLINK
+
+For all analysis, the same DNAm data were used which underwent following QC steps: 
+
+![DNAm QC](../../../data_overview/img/dnam_qc_roadmap.pdf){width=95%}
+
+The imputed QC __SNP data__ (no LD pruning, the MHC regions are included) were used. The data includes __3'957'338 SNPs__.
+
+All meQTLs passed the significance threshold of FDR = 0.05. 
+
+LD clumping was done per CpG using the following parameters:
+
+  --clump-p1 = 0.05:           Significance threshold for index SNPs
+   
+  --clump-p2 = 1:              Secondary significance threshold for clumped SNPs
+ 
+  --clump-r2 = 0.2:            LD threshold for clumping
+
+  --clump-kb = 200:            Physical distance threshold for clumping
+
+## eQTMs
+
+
+# Results
+
+```{r include = F, eval = T}
+cbPalette <- c("grey", "#0072B2")
+```
+
+```{r load-meqtl-eqtm, include = F, eval = T}
+out.dir.pre  <- "/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/integrative/matrixEQTL/"
+setwd(out.dir.pre)
+
+meqtl.delta.fn    <- paste0(out.dir.pre, "meqtls/with_missingness/clumped/me-qtl_cis_result_snps_with_na_delta_beta_fdr_005.csv")
+meqtl.veh.fn      <- paste0(out.dir.pre, "meqtls/with_missingness/clumped/me-qtl_cis_result_snps_with_na_veh_beta_fdr_005.csv")
+col.names         <-  c("SNP", "CpG_ID", "beta", "t-stat", "p-value", "fdr")
+meqtl.delta.df    <- fread(meqtl.delta.fn, col.names = col.names)
+meqtl.veh.df      <- fread(meqtl.veh.fn, col.names = col.names)
+
+eqtm.dex.nom.fn   <- paste0(out.dir.pre, "eqtms/eqtm_cis_result_dex_beta.csv") 
+eqtm.veh.nom.fn   <- paste0(out.dir.pre, "eqtms/eqtm_cis_result_veh_beta.csv") 
+col.names         <- c("CpG_ID", "ENSG_ID", "beta_eqtm", "t-stat_eqtm", "p-value_eqtm", "fdr_eqtm")
+eqtm.dex.nom.df   <- fread(eqtm.dex.nom.fn, col.names = col.names)
+eqtm.veh.nom.df   <- fread(eqtm.veh.nom.fn, col.names = col.names)
+```
+
+```{r include = F}
+meqtl.delta.df[, meQTL_ID := paste(SNP, CpG_ID, sep = "-")]
+meqtl.delta.df[, meQTL_ID := paste(SNP, CpG_ID, sep = "-")]
+
+eqtm.dex.nom.df[, eQTM_ID := paste(CpG_ID, ENSG_ID, sep = "-")]
+eqtm.veh.nom.df[, eQTM_ID := paste(CpG_ID, ENSG_ID, sep = "-")]
+```
+
+
+```{r load-omics, include = F}
+meth.beta.dex.mtrx <- LoadMethylBeta("dex") %>% setDT()
+meth.beta.veh.mtrx <- LoadMethylBeta("veh") %>% setDT()
+gex.dex.mtrx       <- LoadGEX("dex") %>% setDT()
+gex.veh.mtrx       <- LoadGEX("veh") %>% setDT()
+snp.mtrx           <- LoadGenotype() %>% setDT()
+```
+
+## Overlap meQTLs & eQTMs
+
+### Baseline
+
+Overlap between baseline meQTL CpGs (pre-dexamethasone) and baseline eQTM CpGs (pre-dexamethasone)
+
+```{r out.width = "95%", include = F, eval = T}
+euler.cpgs <- list(meqtl = meqtl.veh.df$CpG_ID %>% unique(), 
+                   eqtm  = eqtm.veh.nom.df$CpG_ID %>% unique())
+```
+
+```{r out.width = "95%", include = T, eval = T}
+euler.tbl <- euler(euler.cpgs)
+
+# For visualisation purposes:
+euler.tbl$ellipses["meqtl", c("a", "b")] <- euler.tbl$ellipses["meqtl", c("a", "b")]  
+
+plot(euler.tbl,
+     quantities = list(type = c("counts", "percent")),
+     fills = list(fill = c("grey", "transparent"), alpha = 0.5),
+     labels =  c("meQTL", "eQTM"))
+```
+
+```{r include = T}
+intersect.cpgs    <- intersect(euler.cpgs$meqtl, euler.cpgs$eqtm)
+  
+eqtm.neg.cor   <- eqtm.veh.nom.df[CpG_ID %in% intersect.cpgs][beta_eqtm < 0] %>% nrow()
+eqtm.pos.cor   <- eqtm.veh.nom.df[CpG_ID %in% intersect.cpgs][beta_eqtm > 0] %>% nrow() 
+  
+perc.eqtm.neg.cor <- percent(eqtm.neg.cor / nrow(eqtm.veh.nom.df[CpG_ID %in% intersect.cpgs]), accuracy = 0.01)
+perc.eqtm.pos.cor <- percent(eqtm.pos.cor / nrow(eqtm.veh.nom.df[CpG_ID %in% intersect.cpgs]), accuracy = 0.01)
+```
+
+- **`r percent(euler.tbl$original.values[["meqtl&eqtm"]] / length(unique(meqtl.veh.df$CpG_ID)))`** (**`r as.character(euler.tbl$original.values[["meqtl&eqtm"]])`**) meQTL CpGs overlap with baseline (pre-dexamethasone) eQTM CpGs: **`r perc.eqtm.neg.cor`** are negatively and **`r perc.eqtm.pos.cor`** positively correlated.
+
+- **`r as.character(euler.tbl$original.values[["meqtl&eqtm"]])`** meQTL CpGs are mapped to **`r eqtm.veh.nom.df[CpG_ID %in% intersect.cpgs, ENSG_ID] %>% unique() %>% length()`** eQTM ENSG (**`r eqtm.veh.nom.df[CpG_ID %in% intersect.cpgs] %>% nrow()`** eQTMs).
+
+### GR-induced 
+
+Overlap between GR-induced meQTL CpGs (post-dexamethasone - pre-dexamethasone) and GR-induced eQTM CpGs (post-dexamethasone)
+
+```{r out.width = "95%", include = F, eval = T}
+euler.cpgs <- list(meqtl = meqtl.delta.df$CpG_ID %>% unique(), 
+                   eqtm  = eqtm.dex.nom.df$CpG_ID %>% unique())
+
+intersect.dex.cpgs <- intersect(euler.cpgs$meqtl, euler.cpgs$eqtm)
+```
+
+```{r out.width = "95%", include = T, eval = T}
+euler.tbl <- euler(euler.cpgs)
+
+# For visualisation purposes:
+euler.tbl$ellipses["meqtl", c("a", "b")] <- euler.tbl$ellipses["meqtl", c("a", "b")] * 5 
+
+plot(euler.tbl,
+     quantities = list(type = c("counts", "percent")),
+     fills = list(fill = c("#0072B2", "transparent"), alpha = 0.5),
+     labels =  c("meQTL", "eQTM"))
+```
+
+```{r include = T}
+intersect.cpgs    <- intersect(euler.cpgs$meqtl, euler.cpgs$eqtm)
+  
+eqtm.neg.cor   <- eqtm.veh.nom.df[CpG_ID %in% intersect.cpgs][beta_eqtm < 0] %>% nrow()
+eqtm.pos.cor   <- eqtm.veh.nom.df[CpG_ID %in% intersect.cpgs][beta_eqtm > 0] %>% nrow() 
+  
+perc.eqtm.neg.cor <- percent(eqtm.neg.cor / nrow(eqtm.veh.nom.df[CpG_ID %in% intersect.cpgs]), accuracy = 0.01)
+perc.eqtm.pos.cor <- percent(eqtm.pos.cor / nrow(eqtm.veh.nom.df[CpG_ID %in% intersect.cpgs]), accuracy = 0.01)
+```
+
+- **`r percent(euler.tbl$original.values[["meqtl&eqtm"]] / length(unique(meqtl.veh.df$CpG_ID)))`** (**`r euler.tbl$original.values[["meqtl&eqtm"]]`**) meQTL CpGs overlap with GR-induced (post-dexamethasone) eQTM CpGs: **`r perc.eqtm.neg.cor`** are negatively and **`r perc.eqtm.pos.cor`** positively correlated.
+
+- **`r euler.tbl$original.values[["meqtl&eqtm"]]`** meQTL CpGs are mapped to **`r eqtm.veh.nom.df[CpG_ID %in% intersect.cpgs, ENSG_ID] %>% unique() %>% length()`** eQTM ENSG (**`r eqtm.veh.nom.df[CpG_ID %in% intersect.cpgs] %>% nrow()`** eQTMs).
+
+## Heatmap{.tabset .tabset-fade .tabset-pills}
+
+```{r include = F, eval = T}
+n.top.eqtm <- 200
+
+top.eqtm       <- eqtm.dex.nom.df[CpG_ID %in% intersect.dex.cpgs][1:n.top.eqtm]
+top.eqtm.cpgs  <- top.eqtm$CpG_ID %>% unique()
+top.eqtm.ensgs <- top.eqtm$ENSG_ID %>% unique()
+
+meth.sub.df   <- meth.beta.dex.mtrx[CpG_ID %in% top.eqtm.cpgs]
+gex.sub.df    <- gex.dex.mtrx[ENSG_ID %in% top.eqtm.ensgs]
+
+meth.cor.mtrx <- cor(t(meth.sub.df[, -1]))
+gex.cor.mtrx  <- cor(t(gex.sub.df[, -1]))
+
+meth.gex.sub.df   <- rbind(meth.sub.df[, -1], gex.sub.df[, -1])
+meth.gex.cor.mtrx <- cor(t(meth.gex.sub.df))
+```
+
+```{r out.width = "90%", include = T, eval = T, fig.cap = "Correlation within cis-window of 1Mbp, CpG and GEX \n delta with parallel FC"}
+corrplot(meth.gex.cor.mtrx, 
+         method = "color", cl.pos = "r", 
+         type = "full",
+         tl.pos = "n",
+         title = paste0("Top ", n.top.eqtm, " eQTMs, ", nrow(meth.sub.df), "CpG,  ", nrow(gex.sub.df), "GEX"))
+```
+
+## Examples
+
+### Only post-dex
+
+```{r include = T, eval = T}
+intersect.cpgs <- intersect(meqtl.delta.df$CpG_ID, meqtl.veh.df$CpG_ID)
+selected.meqtl <- meqtl.delta.df[!(CpG_ID %in% intersect.cpgs)][fdr == min(fdr)]
+
+selected.eqtm <- eqtm.dex.nom.df[CpG_ID %in% selected.meqtl$CpG_ID, 
+                                 .(CpG_ID, ENSG_ID, beta_eqtm, `p-value_eqtm`, fdr_eqtm)] %>% unique()
+
+selected.eqtl <- data.frame(ENSG_ID = selected.eqtm$ENSG_ID, SNP = selected.meqtl$SNP) %>% unique()
+```
+
+```{r, eval = T, include = F}
+plot.title <- paste0("Observed only post-dexamethasone: (", selected.meqtl$CpG_ID[1], 
+                     ", ", selected.meqtl$SNP[1], ", ", selected.eqtm$ENSG_ID[1], ")")
+```
+
+#### meQTL
+
+```{r}
+data.table(selected.meqtl %>% 
+        dplyr::select(CpG_ID, SNP, FC = beta, 
+                      p_val = `p-value`, FDR = fdr) %>% 
+        mutate_if(is.numeric, funs(as.character(signif(., 3)))))
+```
+
+```{r out.width = "95%", include = T, eval = T}
+ProcessGetBoxPlot(meth.beta.veh.mtrx, meth.beta.dex.mtrx, snp.mtrx, selected.meqtl[1], fdr.thr = 0.05, 
+                  plot.title = plot.title)
+```
+
+#### eQTM
+
+```{r}
+data.table(selected.eqtm %>% 
+        dplyr::select(CpG_ID, ENSG_ID, FC = beta_eqtm,
+                      p_val = `p-value_eqtm`, FDR = fdr_eqtm) %>% 
+        mutate_if(is.numeric, funs(as.character(signif(., 3)))))
+```
+
+```{r out.width = "95%", include = T, eval = T}
+ScatterPlotGEXvsDNAm(meth.beta.dex.mtrx, meth.beta.veh.mtrx,
+                     gex.dex.mtrx, gex.veh.mtrx,
+                     cpg.id = selected.eqtm$CpG_ID[1], ensg.id = selected.eqtm$ENSG_ID[1])
+```
+
+#### eQTL
+
+```{r out.width = "95%", include = T, eval = T}
+ProcessGetBoxPlot(gex.veh.mtrx, gex.dex.mtrx, snp.mtrx, selected.eqtl[1,], fdr.thr = 0.05, 
+                  plot.title = plot.title)
+```
+
+### Both pre and post-dex
+
+```{r include = T, eval = T}
+intersect.cpgs <- intersect(meqtl.delta.df$CpG_ID, meqtl.veh.df$CpG_ID)
+selected.meqtl <- meqtl.delta.df[CpG_ID %in% intersect.cpgs][fdr == min(fdr)]
+
+selected.eqtm <- eqtm.dex.nom.df[CpG_ID %in% selected.meqtl$CpG_ID, 
+                                 .(CpG_ID, ENSG_ID, beta_eqtm, `p-value_eqtm`, fdr_eqtm)] %>% unique()
+
+selected.eqtl <- data.frame(ENSG_ID = selected.eqtm$ENSG_ID, SNP = selected.meqtl$SNP) %>% unique()
+```
+
+```{r, eval = T, include = F}
+plot.title <- paste0("Observed both pre and post-dexamethasone: (", selected.meqtl$CpG_ID[1], 
+                     ", ", selected.meqtl$SNP[1], ", ", selected.eqtm$ENSG_ID[1], ")")
+```
+
+#### meQTL
+
+```{r}
+data.table(selected.meqtl %>% 
+        dplyr::select(CpG_ID, SNP, FC = beta, 
+                      p_val = `p-value`, FDR = fdr) %>% 
+        mutate_if(is.numeric, funs(as.character(signif(., 3)))))
+```
+
+```{r out.width = "95%", include = T, eval = T}
+ProcessGetBoxPlot(meth.beta.veh.mtrx, meth.beta.dex.mtrx, snp.mtrx, selected.meqtl[1], fdr.thr = 0.05, 
+                  plot.title = plot.title)
+```
+
+#### eQTM
+
+```{r}
+data.table(selected.eqtm %>% 
+        dplyr::select(CpG_ID, ENSG_ID, FC = beta_eqtm,
+                      p_val = `p-value_eqtm`, FDR = fdr_eqtm) %>% 
+        mutate_if(is.numeric, funs(as.character(signif(., 3)))))
+```
+
+
+```{r out.width = "95%", include = T, eval = T}
+ScatterPlotGEXvsDNAm(meth.beta.dex.mtrx, meth.beta.veh.mtrx,
+                     gex.dex.mtrx, gex.veh.mtrx,
+                     cpg.id = selected.eqtm$CpG_ID[1], ensg.id = selected.eqtm$ENSG_ID[1])
+```
+
+#### eQTL
+
+```{r out.width = "95%", include = T, eval = T}
+ProcessGetBoxPlot(gex.veh.mtrx, gex.dex.mtrx, snp.mtrx, selected.eqtl[1,], fdr.thr = 0.05, 
+                  plot.title = plot.title)
+```

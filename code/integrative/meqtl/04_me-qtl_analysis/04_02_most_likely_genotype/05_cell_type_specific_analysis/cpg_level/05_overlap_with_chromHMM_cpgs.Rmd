@@ -1,0 +1,531 @@
+---
+title: "Cell-type specific analysis on CpG level"
+subtitle: "Dexamethasone-Stimulated Human Array Project"
+author: 
+  - name: Anastasiia Hryhorzhevska
+    email: anastasiia_hry@psych.mpg.de
+    url: https://github.com/ahryho
+    affiliation: Max Planck Institute of Psychiatry
+    affiliation_url: https://www.psych.mpg.de/2664393/medizinische-genomforschung
+date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    df_print: paged
+    css: ../../../style.css
+    code_folding: hide
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r, include=FALSE}
+options(digits = 4, width = 100, stringsAsFactors = T)
+knitr::opts_chunk$set(echo = TRUE,
+                      tidy.opts = list(width.cutoff = 100),
+                      tidy=TRUE,
+                      fig.pos = "H",
+                      fig.width = 10,
+                      dpi = 150,
+                      warning = FALSE, 
+                      message = FALSE, 
+                      cache = TRUE, 
+                      cache.lazy = FALSE,
+                      include = F,
+                      eval = T)
+
+# define DT as the standard printing method for data.frame
+library(knitr)
+library(DT)
+knit_print.data.frame <- function(x, ...) {
+  knit_print(DT::datatable(x,
+                           filter="top",
+                           rownames = FALSE,
+                           extensions = "FixedColumns",
+                           options = list(
+                             scrollX = TRUE,
+                             pageLength = 5
+                             
+                           )), ...)
+}
+
+registerS3method("knit_print", "data.frame", knit_print.data.frame)
+```
+
+```{r load-libs, include=FALSE}
+library(data.table)
+library(dplyr)
+
+library(grid)
+library(ggVennDiagram)
+library(gridExtra)
+library(ggplot2)
+library(ggrepel)
+library(scales)
+library(GGally)
+library(factoextra)
+library(viridis)
+
+library(UpSetR)
+library(eulerr)
+```
+
+```{r load-functions}
+setwd("~/bio/code/mpip/dex-stim-human-array/")
+
+source("code/integrative/util.R")
+source("code/integrative/meqtl/05_cell_type_enrichment/04_overlap_with_provencal_pnas_data/00_custom_functions.R")
+source("code/integrative/meqtl/05_cell_type_enrichment/cpg_level/00_functions.R")
+```
+
+```{r load-data}
+## Load data
+## 
+dex.blood.types.cpg.lst <- readRDS("~/bio/code/mpip/dex-stim-human-array/output/data/integrative/cell_type_enrichment/dex_meqtl_cpgs_by_blood_cell_type_significant.rds")
+
+veh.blood.types.cpg.lst <- readRDS("~/bio/code/mpip/dex-stim-human-array/output/data/integrative/cell_type_enrichment/veh_meqtl_cpgs_by_blood_cell_type_significant.rds")
+
+chromhmm.cpg.state.lst.df <- readRDS("~/bio/code/mpip/dex-stim-human-array/output/data/integrative/matrixEQTL/05_me-qtl_enrichment/region_wise_independent_snps/dex_meqtl_cpgs_by_chromhmm_state_blood_significant.rds")
+
+epigenome.blood.map.df <- fread("~/bio/code/mpip/dex-stim-human-array/data/annotation/chromHMM/epigenomes_blood.csv")
+
+##
+```
+
+```{r}
+dex.blood.types.cpgs.df <- lapply(names(dex.blood.types.cpg.lst), 
+                                  function(blood.type){
+                                    data.frame(Type = blood.type, CpG_ID = dex.blood.types.cpg.lst[[blood.type]])
+                                    }) %>% bind_rows() %>% unique()
+
+veh.blood.types.cpgs.df <- lapply(names(veh.blood.types.cpg.lst), 
+                                  function(blood.type){
+                                    data.frame(Type = blood.type, CpG_ID = veh.blood.types.cpg.lst[[blood.type]])
+                                  }) %>% bind_rows() %>% unique()
+
+cell.types.of.interest <- c("Bmem+Bnv", "CD4mem", "CD4nv", "CD8mem", "Neu")
+```
+
+# By chromatin state
+
+## TssA (1)
+
+```{r include = T}
+chromhmm.state <- "TssA"
+
+chromhmm.snps.df <- chromhmm.cpg.state.lst.df$`1_TssA`
+chromhmm.snps.df <- left_join(chromhmm.snps.df, epigenome.blood.map.df[, .(EID, Salas)], by = c("eid" = "EID"))
+
+blood.cell.types.of.interest <- chromhmm.snps.df$Salas %>% unique()
+blood.cell.types.of.interest <- blood.cell.types.of.interest[blood.cell.types.of.interest %in% cell.types.of.interest]
+
+ggvenn.lst <- lapply(blood.cell.types.of.interest, GetVennDiagram, 
+                     chromhmm.snps.df = chromhmm.snps.df, dex.blood.types.snps.df = dex.blood.types.cpgs.df,
+                     veh.blood.types.snps.df = veh.blood.types.cpgs.df, chromhmm.state = chromhmm.state)
+
+grid.arrange(arrangeGrob(ggvenn.lst[[1]], ggvenn.lst[[2]], ncol = 2))
+```
+
+## TssAFlnk (2)
+
+```{r include=TRUE} 
+chromhmm.state <- "TssAFlnk"
+
+chromhmm.snps.df <- chromhmm.cpg.state.lst.df$`2_TssAFlnk`
+chromhmm.snps.df <- left_join(chromhmm.snps.df, epigenome.blood.map.df[, .(EID, Salas)], by = c("eid" = "EID"))
+
+blood.cell.types.of.interest <- chromhmm.snps.df$Salas %>% unique()
+blood.cell.types.of.interest <- blood.cell.types.of.interest[blood.cell.types.of.interest %in% cell.types.of.interest]
+
+ggvenn.lst <- lapply(blood.cell.types.of.interest, GetVennDiagram, 
+                     chromhmm.snps.df = chromhmm.snps.df, dex.blood.types.snps.df = dex.blood.types.cpgs.df,
+                     veh.blood.types.snps.df = veh.blood.types.cpgs.df, chromhmm.state = chromhmm.state)
+
+ggvenn.lst[[1]]
+```
+
+
+## TxWk (5)
+
+```{r include=TRUE} 
+chromhmm.state <- "TxWk"
+
+chromhmm.snps.df <- chromhmm.cpg.state.lst.df$`5_TxWk`
+chromhmm.snps.df <- left_join(chromhmm.snps.df, epigenome.blood.map.df[, .(EID, Salas)], by = c("eid" = "EID"))
+
+blood.cell.types.of.interest <- chromhmm.snps.df$Salas %>% unique()
+blood.cell.types.of.interest <- blood.cell.types.of.interest[blood.cell.types.of.interest %in% cell.types.of.interest]
+
+ggvenn.lst <- lapply(blood.cell.types.of.interest, GetVennDiagram, 
+                     chromhmm.snps.df = chromhmm.snps.df, dex.blood.types.snps.df = dex.blood.types.cpgs.df,
+                     veh.blood.types.snps.df = veh.blood.types.cpgs.df, chromhmm.state = chromhmm.state)
+
+grid.arrange(arrangeGrob(ggvenn.lst[[1]], ggvenn.lst[[2]], ncol = 2)) 
+grid.arrange(arrangeGrob(ggvenn.lst[[3]], ggvenn.lst[[4]], ncol = 2))
+```
+
+
+## EnhG (6)
+
+```{r include=TRUE} 
+chromhmm.state <- "EnhG"
+
+chromhmm.snps.df <- chromhmm.cpg.state.lst.df$`6_EnhG`
+chromhmm.snps.df <- left_join(chromhmm.snps.df, epigenome.blood.map.df[, .(EID, Salas)], by = c("eid" = "EID"))
+
+blood.cell.types.of.interest <- chromhmm.snps.df$Salas %>% unique()
+blood.cell.types.of.interest <- blood.cell.types.of.interest[blood.cell.types.of.interest %in% cell.types.of.interest]
+
+ggvenn.lst <- lapply(blood.cell.types.of.interest, GetVennDiagram, 
+                     chromhmm.snps.df = chromhmm.snps.df, dex.blood.types.snps.df = dex.blood.types.cpgs.df,
+                     veh.blood.types.snps.df = veh.blood.types.cpgs.df, chromhmm.state = chromhmm.state)
+
+grid.arrange(arrangeGrob(ggvenn.lst[[1]], ggvenn.lst[[2]], ncol = 2))
+grid.arrange(arrangeGrob(ggvenn.lst[[3]], ggvenn.lst[[4]], ncol = 2))
+grid.arrange(arrangeGrob(ggvenn.lst[[5]], ncol = 1))
+
+```
+
+## Enh (7)
+
+```{r include = T} 
+chromhmm.state <- "Enhancer"
+
+chromhmm.snps.df <- chromhmm.cpg.state.lst.df$`7_Enh`
+chromhmm.snps.df <- left_join(chromhmm.snps.df, epigenome.blood.map.df[, .(EID, Salas)], by = c("eid" = "EID"))
+
+blood.cell.types.of.interest <- chromhmm.snps.df$Salas %>% unique()
+blood.cell.types.of.interest <- blood.cell.types.of.interest[blood.cell.types.of.interest %in% cell.types.of.interest]
+
+ggvenn.lst <- lapply(blood.cell.types.of.interest, GetVennDiagram, 
+                     chromhmm.snps.df = chromhmm.snps.df, dex.blood.types.snps.df = dex.blood.types.cpgs.df, 
+                     veh.blood.types.snps.df = veh.blood.types.cpgs.df, chromhmm.state = chromhmm.state)
+
+grid.arrange(arrangeGrob(ggvenn.lst[[1]], ggvenn.lst[[2]], ncol = 2))
+grid.arrange(arrangeGrob(ggvenn.lst[[3]], ggvenn.lst[[4]], ncol = 2))
+grid.arrange(arrangeGrob(ggvenn.lst[[5]], ncol = 1))
+```
+
+## BivFlnk (11)
+
+```{r include=TRUE} 
+chromhmm.state <- "BivFlnk"
+
+chromhmm.snps.df <- chromhmm.cpg.state.lst.df$`11_BivFlnk`
+chromhmm.snps.df <- left_join(chromhmm.snps.df, epigenome.blood.map.df[, .(EID, Salas)], by = c("eid" = "EID"))
+
+blood.cell.types.of.interest <- chromhmm.snps.df$Salas %>% unique()
+blood.cell.types.of.interest <- blood.cell.types.of.interest[blood.cell.types.of.interest %in% cell.types.of.interest]
+
+ggvenn.lst <- lapply(blood.cell.types.of.interest, GetVennDiagram, 
+                     chromhmm.snps.df = chromhmm.snps.df, dex.blood.types.snps.df = dex.blood.types.cpgs.df,
+                     veh.blood.types.snps.df = veh.blood.types.cpgs.df, chromhmm.state = chromhmm.state)
+
+ggvenn.lst[[1]]
+```
+
+## EnhBiv (12)
+
+```{r include=TRUE} 
+chromhmm.state <- "EnhBiv"
+
+chromhmm.snps.df <- chromhmm.cpg.state.lst.df$`12_EnhBiv`
+chromhmm.snps.df <- left_join(chromhmm.snps.df, epigenome.blood.map.df[, .(EID, Salas)], by = c("eid" = "EID"))
+
+blood.cell.types.of.interest <- chromhmm.snps.df$Salas %>% unique()
+blood.cell.types.of.interest <- blood.cell.types.of.interest[blood.cell.types.of.interest %in% cell.types.of.interest]
+
+ggvenn.lst <- lapply(blood.cell.types.of.interest, GetVennDiagram, 
+                     chromhmm.snps.df = chromhmm.snps.df, dex.blood.types.snps.df = dex.blood.types.cpgs.df,
+                     veh.blood.types.snps.df = veh.blood.types.cpgs.df, chromhmm.state = chromhmm.state)
+
+grid.arrange(arrangeGrob(ggvenn.lst[[1]], ggvenn.lst[[2]], ncol = 2))
+```
+
+## ReprPC (13)
+
+```{r include=TRUE} 
+chromhmm.state <- "ReprPC"
+
+chromhmm.snps.df <- chromhmm.cpg.state.lst.df$`13_ReprPC`
+chromhmm.snps.df <- left_join(chromhmm.snps.df, epigenome.blood.map.df[, .(EID, Salas)], by = c("eid" = "EID"))
+
+blood.cell.types.of.interest <- chromhmm.snps.df$Salas %>% unique()
+blood.cell.types.of.interest <- blood.cell.types.of.interest[blood.cell.types.of.interest %in% cell.types.of.interest]
+
+ggvenn.lst <- lapply(blood.cell.types.of.interest, GetVennDiagram, 
+                     chromhmm.snps.df = chromhmm.snps.df, dex.blood.types.snps.df = dex.blood.types.cpgs.df,
+                     veh.blood.types.snps.df = veh.blood.types.cpgs.df, chromhmm.state = chromhmm.state)
+
+grid.arrange(arrangeGrob(ggvenn.lst[[1]], ggvenn.lst[[2]], ncol = 2))
+grid.arrange(arrangeGrob(ggvenn.lst[[3]], ggvenn.lst[[4]], ncol = 2))
+grid.arrange(arrangeGrob(ggvenn.lst[[5]], ncol = 1))
+```
+
+## ReprPCWk (14)
+
+```{r include=TRUE}
+
+chromhmm.state <- "ReprPCWk"
+
+chromhmm.snps.df <- chromhmm.cpg.state.lst.df$`14_ReprPCWk`
+chromhmm.snps.df <- left_join(chromhmm.snps.df, epigenome.blood.map.df[, .(EID, Salas)], by = c("eid" = "EID"))
+
+blood.cell.types.of.interest <- chromhmm.snps.df$Salas %>% unique()
+blood.cell.types.of.interest <- blood.cell.types.of.interest[blood.cell.types.of.interest %in% cell.types.of.interest]
+
+ggvenn.lst <- lapply(blood.cell.types.of.interest, GetVennDiagram, 
+                     chromhmm.snps.df = chromhmm.snps.df, dex.blood.types.snps.df = dex.blood.types.cpgs.df, 
+                     veh.blood.types.snps.df = veh.blood.types.cpgs.df, chromhmm.state = chromhmm.state)
+
+grid.arrange(arrangeGrob(ggvenn.lst[[1]], ggvenn.lst[[2]], ncol = 2))
+grid.arrange(arrangeGrob(ggvenn.lst[[3]], ggvenn.lst[[4]], ncol = 2))
+grid.arrange(arrangeGrob(ggvenn.lst[[5]], ncol = 1))
+```
+
+# All states
+
+```{r include = T}
+######
+###### Overlap between two cell type-specific analysis
+###### 
+
+chromhmm.state <- "all significant states"
+
+chromhmm.cpgs.df <- chromhmm.cpg.state.lst.df %>% bind_rows()
+chromhmm.cpgs.df <- left_join(chromhmm.cpgs.df, epigenome.blood.map.df[, .(EID, Salas)], by = c("eid" = "EID"))
+
+blood.cell.types.of.interest <- c("Bmem+Bnv", "CD4mem", "CD4nv", "CD8mem", "Neu")
+chromhmm.state.of.interest   <- c("1_TssA", "2_TssAFlnk", "5_TxWk", "6_EnhG", "7_Enh", "11_BivFlnk", "12_EnhBiv", "14_ReprPC", "14_ReprPCWk" )
+
+ggvenn.lst <- lapply(blood.cell.types.of.interest, GetVennDiagram, 
+                     chromhmm.snps.df = chromhmm.cpgs.df[state %in% chromhmm.state.of.interest, ], 
+                     dex.blood.types.snps.df = dex.blood.types.cpgs.df, 
+                     veh.blood.types.snps.df = veh.blood.types.cpgs.df,
+                     chromhmm.state = chromhmm.state)
+
+grid.arrange(arrangeGrob(ggvenn.lst[[1]], ggvenn.lst[[2]], ncol = 2))
+grid.arrange(arrangeGrob(ggvenn.lst[[3]], ggvenn.lst[[4]], ncol = 2))
+grid.arrange(arrangeGrob(ggvenn.lst[[5]], ncol = 1))
+
+```
+
+# DNAm level after dex
+
+<!-- dex meQTLs with decrease or gain of methylation after dex -->
+
+```{r load-data-2}
+ind.meqtl.delta.df      <- fread("~/bio/code/mpip/dex-stim-human-array/output/data/integrative/matrixEQTL/meqtls/region_wise_independent_snps/me-qtl_cis_indp_rw_delta_fdr_005.csv") 
+
+ind.meqtl.delta.df[["meth_level"]] <- ifelse(ind.meqtl.delta.df$beta < 0, "decrease", "increase")
+ind.meqtl.delta.df <- left_join(ind.meqtl.delta.df, dex.blood.types.cpgs.df)
+```
+
+```{r}
+barplt.lst <- lapply(blood.cell.types.of.interest, PlotMethyLevelGain, ind.meqtl.delta.beta.val = ind.meqtl.delta.df)
+```
+
+```{r load-data-3}
+snp.df    <- fread("~/bio/code/mpip/dex-stim-human-array/data/integrative/matrixEQTL/snp_mtrx_backup/snp_mtrx.csv")
+
+delta.meqtls.for.eqtms  <- fread("~/bio/code/mpip/dex-stim-human-array/output/data/integrative/matrixEQTL/eqtms/delta_meqtls_significant_for_eqtm_analysis.csv")
+
+## DNAm beta matrices for delta meqtls
+##
+beta.veh.sub.mtrx <- GetMethylSubset(treatment = "veh", delta.meqtls.for.eqtms, is.out = F) # 653 x 197 
+beta.dex.sub.mtrx <- GetMethylSubset(treatment = "dex", delta.meqtls.for.eqtms, is.out = F) # 653 x 197
+
+## Load GEX matrices
+## 
+gex.dex.mtrx      <- LoadGEX("dex")
+gex.veh.mtrx      <- LoadGEX("veh")
+
+## eQTMs
+## 
+eqtms.fn <- "~/bio/code/mpip/dex-stim-human-array/output/data/integrative/matrixEQTL/eqtms/eqtm_cis_result_from_delta_meqtls_cell_type.csv"
+eqtm.df <- fread(eqtms.fn)
+
+## meQTLs by blood types
+## 
+delta.blood.types.meqtls.lst <- readRDS("~/bio/code/mpip/dex-stim-human-array/output/data/integrative/cell_type_enrichment/delta_meqtls_by_blood_cell_type_significant.rds") 
+delta.blood.types.meqtls.df  <- delta.blood.types.meqtls.lst %>% bind_rows() %>% unique() %>% setDT()
+
+## Pheno
+## 
+pheno <- LoadPheno()
+
+## Salas BCCs
+bcc.fn <- "~/bio/code/mpip/dex-stim-human-array/output/data/methylation/dex_stim_array_human_epidish_salas_bcc_rpc.csv" 
+bcc.df <- read.csv2(bcc.fn)
+bcc.df <- left_join(bcc.df, pheno[pheno$Dex == 0, c("DNA_ID", "DNAm_ID")])
+```
+
+## B-cells
+
+```{r include = T}
+grid.arrange(arrangeGrob(ggvenn.lst[[1]], barplt.lst[[1]], ncol = 2))
+```
+
+```{r}
+blood.type <- "Bmem+Bnv"
+
+plt.res <- GetPlots(blood.type,
+                    chromhmm.snps.df = chromhmm.cpgs.df[state %in% chromhmm.state.of.interest, ], 
+                    dex.blood.types.snps.df = dex.blood.types.cpgs.df, 
+                    veh.blood.types.snps.df = veh.blood.types.cpgs.df,
+                    chromhmm.state = chromhmm.state,
+                    eqtm.df = eqtm.df, 
+                    beta.dex.sub.mtrx = beta.dex.sub.mtrx,
+                    beta.veh.sub.mtrx = beta.veh.sub.mtrx,
+                    bcc.df = bcc.df)
+```
+
+### No base effect
+
+```{r, include = T}
+grid.arrange(arrangeGrob(plt.res$no_base$plt.meqtl, plt.res$no_base$plt.eqtl, ncol = 2))
+grid.arrange(arrangeGrob(plt.res$no_base$plt.eqtm, plt.res$no_base$plt.bcc.dnam, ncol = 2))
+```
+
+### With base effect
+
+```{r, include = T}
+grid.arrange(arrangeGrob(plt.res$with_base$plt.meqtl, plt.res$with_base$plt.eqtl, ncol = 2))
+grid.arrange(arrangeGrob(plt.res$with_base$plt.eqtm, plt.res$with_base$plt.bcc.dnam, ncol = 2))
+```
+
+## CD4mem
+
+```{r include = T}
+grid.arrange(arrangeGrob(ggvenn.lst[[2]], barplt.lst[[2]], ncol = 2)) 
+```
+
+```{r}
+blood.type <- "CD4mem"
+
+plt.res <- GetPlots(blood.type,
+                    chromhmm.snps.df = chromhmm.cpgs.df[state %in% chromhmm.state.of.interest, ], 
+                    dex.blood.types.snps.df = dex.blood.types.cpgs.df, 
+                    veh.blood.types.snps.df = veh.blood.types.cpgs.df,
+                    chromhmm.state = chromhmm.state,
+                    eqtm.df = eqtm.df, 
+                    beta.dex.sub.mtrx = beta.dex.sub.mtrx,
+                    beta.veh.sub.mtrx = beta.veh.sub.mtrx,
+                    bcc.df = bcc.df)
+```
+
+### No base effect
+
+```{r, include = T}
+grid.arrange(arrangeGrob(plt.res$no_base$plt.meqtl, plt.res$no_base$plt.eqtl, ncol = 2))
+grid.arrange(arrangeGrob(plt.res$no_base$plt.eqtm, plt.res$no_base$plt.bcc.dnam, ncol = 2))
+```
+
+### With base effect
+
+```{r, include = T}
+grid.arrange(arrangeGrob(plt.res$with_base$plt.meqtl, plt.res$with_base$plt.eqtl, ncol = 2))
+grid.arrange(arrangeGrob(plt.res$with_base$plt.eqtm, plt.res$with_base$plt.bcc.dnam, ncol = 2))
+```
+
+## CD4nv
+
+```{r include = T}
+grid.arrange(arrangeGrob(ggvenn.lst[[3]], barplt.lst[[3]], ncol = 2)) 
+```
+
+```{r}
+blood.type <- "CD4nv"
+
+plt.res <- GetPlots(blood.type,
+                    chromhmm.snps.df = chromhmm.cpgs.df[state %in% chromhmm.state.of.interest, ], 
+                    dex.blood.types.snps.df = dex.blood.types.cpgs.df, 
+                    veh.blood.types.snps.df = veh.blood.types.cpgs.df,
+                    chromhmm.state = chromhmm.state,
+                    eqtm.df = eqtm.df, 
+                    beta.dex.sub.mtrx = beta.dex.sub.mtrx,
+                    beta.veh.sub.mtrx = beta.veh.sub.mtrx,
+                    bcc.df = bcc.df)
+```
+
+### No base effect
+
+```{r, include = T}
+grid.arrange(arrangeGrob(plt.res$no_base$plt.meqtl, plt.res$no_base$plt.eqtl, ncol = 2))
+grid.arrange(arrangeGrob(plt.res$no_base$plt.eqtm, plt.res$no_base$plt.bcc.dnam, ncol = 2))
+```
+
+### With base effect
+
+```{r, include = T}
+grid.arrange(arrangeGrob(plt.res$with_base$plt.meqtl, plt.res$with_base$plt.eqtl, ncol = 2))
+grid.arrange(arrangeGrob(plt.res$with_base$plt.eqtm, plt.res$with_base$plt.bcc.dnam, ncol = 2))
+```
+
+## CD8mem
+
+```{r include = T}
+grid.arrange(arrangeGrob(ggvenn.lst[[4]], barplt.lst[[4]], ncol = 2)) 
+```
+
+```{r}
+blood.type <- "CD8mem"
+
+plt.res <- GetPlots(blood.type,
+                    chromhmm.snps.df = chromhmm.cpgs.df[state %in% chromhmm.state.of.interest, ], 
+                    dex.blood.types.snps.df = dex.blood.types.cpgs.df, 
+                    veh.blood.types.snps.df = veh.blood.types.cpgs.df,
+                    chromhmm.state = chromhmm.state,
+                    eqtm.df = eqtm.df, 
+                    beta.dex.sub.mtrx = beta.dex.sub.mtrx,
+                    beta.veh.sub.mtrx = beta.veh.sub.mtrx,
+                    bcc.df = bcc.df)
+```
+
+### No base effect
+
+```{r, include = T}
+grid.arrange(arrangeGrob(plt.res$no_base$plt.meqtl, plt.res$no_base$plt.eqtl, ncol = 2))
+grid.arrange(arrangeGrob(plt.res$no_base$plt.eqtm, plt.res$no_base$plt.bcc.dnam, ncol = 2))
+```
+
+### With base effect
+
+```{r, include = T}
+grid.arrange(arrangeGrob(plt.res$with_base$plt.meqtl, plt.res$with_base$plt.eqtl, ncol = 2))
+grid.arrange(arrangeGrob(plt.res$with_base$plt.eqtm, plt.res$with_base$plt.bcc.dnam, ncol = 2))
+```
+
+## Neu
+
+```{r include = T}
+grid.arrange(arrangeGrob(ggvenn.lst[[5]], barplt.lst[[5]], ncol = 2))
+```
+
+```{r}
+blood.type <- "Neu"
+
+plt.res <- GetPlots(blood.type,
+                    chromhmm.snps.df = chromhmm.cpgs.df[state %in% chromhmm.state.of.interest, ], 
+                    dex.blood.types.snps.df = dex.blood.types.cpgs.df, 
+                    veh.blood.types.snps.df = veh.blood.types.cpgs.df,
+                    chromhmm.state = chromhmm.state,
+                    eqtm.df = eqtm.df, 
+                    beta.dex.sub.mtrx = beta.dex.sub.mtrx,
+                    beta.veh.sub.mtrx = beta.veh.sub.mtrx,
+                    bcc.df = bcc.df)
+```
+
+### No base effect
+
+```{r, include = T}
+grid.arrange(arrangeGrob(plt.res$no_base$plt.meqtl, plt.res$no_base$plt.eqtl, ncol = 2))
+grid.arrange(arrangeGrob(plt.res$no_base$plt.eqtm, plt.res$no_base$plt.bcc.dnam, ncol = 2))
+```
+
+### With base effect
+
+```{r, include = T}
+grid.arrange(arrangeGrob(plt.res$with_base$plt.meqtl, plt.res$with_base$plt.eqtl, ncol = 2))
+grid.arrange(arrangeGrob(plt.res$with_base$plt.eqtm, plt.res$with_base$plt.bcc.dnam, ncol = 2))
+```

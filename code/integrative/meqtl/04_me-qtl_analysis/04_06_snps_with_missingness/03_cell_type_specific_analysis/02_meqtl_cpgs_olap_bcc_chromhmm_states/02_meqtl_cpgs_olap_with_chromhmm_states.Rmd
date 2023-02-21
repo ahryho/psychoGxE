@@ -1,0 +1,354 @@
+---
+title: "Cell-type specific analysis on CpG level"
+subtitle: "Dexamethasone-Stimulated Human Array Project"
+author: 
+  - name: Anastasiia Hryhorzhevska
+    email: anastasiia_hry@psych.mpg.de
+    url: https://github.com/ahryho
+    affiliation: Max Planck Institute of Psychiatry
+    affiliation_url: https://www.psych.mpg.de/2664393/medizinische-genomforschung
+date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    df_print: paged
+    css: ~/mpip/projects/dex-stim-human-array/code/integrative/style.css
+    code_folding: hide
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r, include=FALSE}
+options(digits = 4, width = 100, stringsAsFactors = T)
+knitr::opts_chunk$set(echo = TRUE,
+                      tidy.opts = list(width.cutoff = 100),
+                      tidy=TRUE,
+                      fig.pos = "H",
+                      fig.width = 10,
+                      dpi = 150,
+                      warning = FALSE, 
+                      message = FALSE, 
+                      include = TRUE,
+                      eval = TRUE,
+                      cache = TRUE, 
+                      cache.lazy = FALSE,
+                      eval = T)
+
+# define DT as the standard printing method for data.frame
+library(knitr)
+library(DT)
+knit_print.data.frame <- function(x, ...) {
+  knit_print(DT::datatable(x,
+                           filter="top",
+                           rownames = FALSE,
+                           extensions = "FixedColumns",
+                           options = list(
+                             scrollX = TRUE,
+                             pageLength = 5
+                             
+                           )), ...)
+}
+
+registerS3method("knit_print", "data.frame", knit_print.data.frame)
+```
+
+```{r load-libs, include=FALSE}
+library(data.table)
+library(arrow)
+library(dplyr)
+
+library(grid)
+library(ggVennDiagram)
+library(gridExtra)
+library(ggplot2)
+library(ggrepel)
+library(scales)
+library(GGally)
+library(viridis)
+
+library(UpSetR)
+library(eulerr)
+```
+
+```{r load-functions, include = F}
+setwd("~/mpip/projects/dex-stim-human-array/code/integrative/")
+
+source("util.R")
+source("meqtl/05_cell_type_enrichment/04_overlap_with_provencal_pnas_data/00_custom_functions.R")
+source("meqtl/04_me-qtl_analysis/04_06_snps_with_missingness/03_cell_type_specific_analysis/02_meqtl_cpgs_olap_bcc_chromhmm_states/00_functions.R")
+```
+
+<!-- Next chuncks prepare data for further analysis -->
+
+```{r setup-path, eval = T, include = F}
+dir.pre <- "/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/"
+out.dir.pre <- "/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/integrative/matrixEQTL/meqtls/with_missingness/"
+```
+
+```{r get-list-of-chromhmm-enrichments, include = F, eval = F}
+tissue              <- "blood"
+enrichment.rslts.fn <- paste0(out.dir.pre, "enrichment/cpgs/meqtl_cpgs_chromHMM_", tissue, "/", 
+                              list.files(paste0(out.dir.pre, "enrichment/cpgs/meqtl_cpgs_chromHMM_", tissue)))
+```
+
+```{r include = F, eval = F}
+epigenome <- fread(paste0(dir.pre, "/data/annotation/chromHMM/epigenomes.tsv"),
+                   col.names = c("EID", "ORDER", "GROUP", "MNEMONIC", "NAME"))
+```
+
+```{r read-chromhmm-anno-delta, eval = F, include = F}
+delta.meqtls.cpg.chromhmm.annotated.df <- fread(paste0(out.dir.pre, "annotation/cpgs/meqtls_cpg_chromhmm_annotated_delta.csv"))
+delta.meqtls.cpg.chromhmm.annotated.df[, Model := "Delta"]
+```
+
+```{r eval = F, include = F}
+enrichment.all.df <- lapply(seq_along(enrichment.rslts.fn), function(i) {
+    eid   <- sub(".csv", "", sub(".*_", "", enrichment.rslts.fn[i]))
+    ename <- epigenome[EID == eid, NAME] 
+    # ename <- paste0(eid, ": ", ename)
+    
+    df <- data.frame(read.csv2(enrichment.rslts.fn[i]), eid = eid, ename = ename) %>% setDT()
+    df <- df[p_val_emp <= 0.05]
+    }) %>% bind_rows()
+```
+
+```{r delta, eval = F, include = F}
+chromhmm.cpg.lst.df <- left_join(enrichment.all.df[, c("eid", "ename", "state")], 
+                                 delta.meqtls.cpg.chromhmm.annotated.df[, .(CpG_ID, annot.code, annot.type)],
+                                 by = c("eid" = "annot.code", "state" = "annot.type"))
+
+chromhmm.cpg.lst.df  <- split(chromhmm.cpg.lst.df, by = "state")
+
+saveRDS(chromhmm.cpg.lst.df, 
+         paste0(out.dir.pre, 
+                "enrichment/cpgs/meqtl_cpgs_by_chromhmm_state_blood_significant_delta.rds"))
+```
+
+```{r baseline, eval = F, include = F}
+chromhmm.cpg.lst.df <- left_join(enrichment.all.df[, c("eid", "ename", "state")], 
+                                 veh.meqtls.cpg.chromhmm.annotated.df[, .(CpG_ID, annot.code, annot.type)],
+                                 by = c("eid" = "annot.code", "state" = "annot.type"))
+
+chromhmm.cpg.lst.df  <- split(chromhmm.cpg.lst.df, by = "state")
+
+saveRDS(chromhmm.cpg.lst.df, 
+         paste0(out.dir.pre, 
+                "enrichment/cpgs/meqtl_cpgs_by_chromhmm_state_blood_significant_baseline.rds"))
+```
+
+# Introduction
+
+```{r load-bcc-enrichment-rslt}
+meqtl.dex.bcc.fdr.df <- fread(paste0(out.dir.pre, "enrichment/meqtl_dex_cell_type_enrichment_fdr_005.csv"))
+meqtl.veh.bcc.fdr.df <- fread(paste0(out.dir.pre, "enrichment/meqtl_veh_cell_type_enrichment_fdr_005.csv"))
+```
+
+```{r load-chromhmm}
+chromhmm.cpg.state.lst.df <- readRDS(paste0(out.dir.pre, "enrichment/cpgs/meqtl_cpgs_by_chromhmm_state_blood_significant_delta.rds"))
+epigenome.blood.map.df    <- fread(paste0(dir.pre, "data/annotation/chromHMM/epigenomes_blood.csv"))
+```
+
+```{r load-dnam-betas, include = F}
+dnam.veh <- LoadMethylBeta(treatment = "veh") %>% setDT()
+dnam.dex <- LoadMethylBeta(treatment = "dex") %>% setDT()
+```
+
+```{r include = F}
+blood.cell.types.of.interest <- c("Bmem+Bnv", "CD4mem", "CD8mem", "Neu")
+chromhmm.states.of.interest  <- names(within(chromhmm.cpg.state.lst.df, rm("15_Quies")))
+```
+
+# Results
+
+## Overlap with ChromHMM 
+
+```{r include = T}
+######
+###### Overlap between two cell type-specific analysis
+###### 
+
+chromhmm.state <- "all significant states"
+
+chromhmm.cpgs.df <- chromhmm.cpg.state.lst.df %>% bind_rows()
+chromhmm.cpgs.df <- left_join(chromhmm.cpgs.df, epigenome.blood.map.df[, .(EID, Salas)], by = c("eid" = "EID"))
+
+ggvenn.lst <- lapply(blood.cell.types.of.interest, GetVennDiagram, 
+                     chromhmm.snps.df = chromhmm.cpgs.df[state %in% chromhmm.states.of.interest, ], 
+                     dex.blood.types.snps.df = meqtl.dex.bcc.fdr.df, 
+                     veh.blood.types.snps.df = meqtl.veh.bcc.fdr.df,
+                     chromhmm.state = chromhmm.state)
+
+grid.arrange(arrangeGrob(ggvenn.lst[[1]], ggvenn.lst[[2]], ncol = 2))
+grid.arrange(arrangeGrob(ggvenn.lst[[3]], ggvenn.lst[[4]], ncol = 2))
+```
+
+## DNAm level post-dexamethasone {.tabset .tabset-fade .tabset-pills}
+
+<!-- dex meQTLs with decrease or gain of methylation after dex -->
+
+```{r load-meqtl-delta-data}
+ind.meqtl.delta.df <- fread(paste0(out.dir.pre, "clumped/me-qtl_cis_result_snps_with_na_delta_beta_fdr_005.csv"), 
+                            col.names = c("SNP", "CpG_ID", "beta", "t-stat", "p-value", "fdr"))
+
+ind.meqtl.delta.df[["meth_level"]] <- ifelse(ind.meqtl.delta.df$beta < 0, "decrease", "increase")
+ind.meqtl.delta.df <- left_join(meqtl.dex.bcc.fdr.df[, .(CpG_ID, Type)], ind.meqtl.delta.df)
+```
+
+```{r}
+dnam.gain.plt.all.intersected.lst <- lapply(blood.cell.types.of.interest, function(blood.type){
+  chromhmm.snps.df <- chromhmm.cpgs.df[state %in% chromhmm.states.of.interest][Salas %in% blood.type]
+  if (blood.type == "Bmem+Bnv") blood.type <- c("Bmem")
+  intersected.ids <- intersect(intersect(meqtl.dex.bcc.fdr.df[Type %in% blood.type, ]$CpG_ID,
+                                         meqtl.veh.bcc.fdr.df[Type %in% blood.type, ]$CpG_ID),
+                               chromhmm.snps.df$CpG_ID) 
+  
+  ## DNAm gain barplot
+  PlotMethyLevelGain(blood.type = blood.type, 
+                     ind.meqtl.delta.beta.val = ind.meqtl.delta.df[CpG_ID %in% intersected.ids],
+                     plot.title = paste0(blood.type, " intersection with baseline"))
+})
+```
+
+```{r}
+dnam.boxplt.all.intersected.lst <- lapply(blood.cell.types.of.interest, function(blood.type){
+  chromhmm.snps.df <- chromhmm.cpgs.df[state %in% chromhmm.states.of.interest][Salas %in% blood.type]
+  if (blood.type == "Bmem+Bnv") blood.type <- c("Bmem")
+  intersected.ids <- intersect(intersect(meqtl.dex.bcc.fdr.df[Type %in% blood.type, ]$CpG_ID,
+                                         meqtl.veh.bcc.fdr.df[Type %in% blood.type, ]$CpG_ID),
+                               chromhmm.snps.df$CpG_ID) 
+  
+  ## Extract DNAm subset if intersection
+  dnam.veh.subset <- dnam.veh[CpG_ID %in% intersected.ids] %>% mutate(Treatment = "Baseline")
+  dnam.dex.subset <- dnam.dex[CpG_ID %in% intersected.ids] %>% mutate(Treatment = "GR-induced")
+
+  dnam.subset     <- rbind(dnam.veh.subset,
+                           dnam.dex.subset) %>% 
+    melt(id = c("CpG_ID", "Treatment")) %>% mutate (Type = blood.type)
+  
+  ### DNAn Boxplot
+  BoxPlotDNAm(dnam.subset, plot.title = blood.type)
+  })
+```
+
+```{r}
+dnam.gain.plt.dex.intersected.lst <- lapply(blood.cell.types.of.interest, function(blood.type){
+  chromhmm.snps.df <- chromhmm.cpgs.df[state %in% chromhmm.states.of.interest][Salas %in% blood.type]
+  if (blood.type == "Bmem+Bnv") blood.type <- c("Bmem")
+  intersected.ids <- intersect(setdiff(meqtl.dex.bcc.fdr.df[Type %in% blood.type, ]$CpG_ID,
+                                         meqtl.veh.bcc.fdr.df[Type %in% blood.type, ]$CpG_ID),
+                               chromhmm.snps.df$CpG_ID) 
+  
+  PlotMethyLevelGain(blood.type = blood.type, 
+                     ind.meqtl.delta.beta.val = ind.meqtl.delta.df[CpG_ID %in% intersected.ids],
+                     plot.title = paste0(blood.type, " intersection without baseline"))
+  })
+```
+
+```{r}
+dnam.boxplt.dex.intersected.lst <- lapply(blood.cell.types.of.interest, function(blood.type){
+  chromhmm.snps.df <- chromhmm.cpgs.df[state %in% chromhmm.states.of.interest][Salas %in% blood.type]
+  if (blood.type == "Bmem+Bnv") blood.type <- c("Bmem")
+  intersected.ids <- intersect(setdiff(meqtl.dex.bcc.fdr.df[Type %in% blood.type, ]$CpG_ID,
+                                         meqtl.veh.bcc.fdr.df[Type %in% blood.type, ]$CpG_ID),
+                               chromhmm.snps.df$CpG_ID) 
+  
+  ## Extract DNAm subset if intersection
+  dnam.veh.subset <- dnam.veh[CpG_ID %in% intersected.ids] %>% mutate(Treatment = "Baseline")
+  dnam.dex.subset <- dnam.dex[CpG_ID %in% intersected.ids] %>% mutate(Treatment = "GR-induced")
+
+  dnam.subset     <- rbind(dnam.veh.subset,
+                           dnam.dex.subset) %>% 
+    melt(id = c("CpG_ID", "Treatment")) %>% mutate (Type = blood.type)
+  
+  ### DNAn Boxplot
+  BoxPlotDNAm(dnam.subset, plot.title = blood.type)
+  })
+```
+
+## Bmem 
+
+```{r}
+i <- 1
+
+grid.arrange(arrangeGrob(ggvenn.lst[[i]]),
+             arrangeGrob(dnam.gain.plt.all.intersected.lst[[i]], dnam.boxplt.all.intersected.lst[[i]],
+                         dnam.gain.plt.dex.intersected.lst[[i]], dnam.boxplt.dex.intersected.lst[[i]],
+                         ncol = 2, nrow = 2), ncol = 2)
+```
+
+## CD4mem
+
+```{r}
+i <- 2
+
+grid.arrange(arrangeGrob(ggvenn.lst[[i]]),
+             arrangeGrob(dnam.gain.plt.all.intersected.lst[[i]], dnam.boxplt.all.intersected.lst[[i]],
+                         dnam.gain.plt.dex.intersected.lst[[i]], dnam.boxplt.dex.intersected.lst[[i]],
+                         ncol = 2, nrow = 2), ncol = 2)
+```
+
+## CD8mem
+
+```{r}
+i <- 3
+
+grid.arrange(arrangeGrob(ggvenn.lst[[i]]),
+             arrangeGrob(dnam.gain.plt.all.intersected.lst[[i]], dnam.boxplt.all.intersected.lst[[i]],
+                         dnam.gain.plt.dex.intersected.lst[[i]], dnam.boxplt.dex.intersected.lst[[i]],
+                         ncol = 2, nrow = 2), ncol = 2)
+```
+
+## Neutrophils 
+
+```{r}
+i <- 4
+
+grid.arrange(arrangeGrob(ggvenn.lst[[i]]),
+             arrangeGrob(dnam.gain.plt.all.intersected.lst[[i]], dnam.boxplt.all.intersected.lst[[i]],
+                         dnam.gain.plt.dex.intersected.lst[[i]], dnam.boxplt.dex.intersected.lst[[i]],
+                         ncol = 2, nrow = 2), ncol = 2)
+```
+
+```{r export-data-for-phewas-with-base, eval = F, include = F}
+# ChromHMM + Baseline + Dex
+
+system(paste0("mkdir -p ", out.dir.pre, "for_phewas/cpg_level/"))
+
+sapply(blood.cell.types.of.interest, function(blood.type){
+  chromhmm.df <- chromhmm.cpgs.df[state %in% chromhmm.states.of.interest][Salas %in% blood.type]
+  if (blood.type == "Bmem+Bnv") 
+    blood.type <- c("Bmem")
+  intersected.ids <- intersect(intersect(meqtl.dex.bcc.fdr.df[Type %in% blood.type, ]$CpG_ID,
+                                         meqtl.veh.bcc.fdr.df[Type %in% blood.type, ]$CpG_ID),
+                               chromhmm.df$CpG_ID) 
+
+  odf   <- ind.meqtl.delta.df[CpG_ID %in% intersected.ids][Type %in% blood.type] %>% 
+    dplyr::select(-meth_level) %>% mutate(Phenotype = "with_base")
+  ofile <- paste0(out.dir.pre, "for_phewas/cpg_level/delta_meqtls_", blood.type, "_with_base.csv")
+
+  fwrite(odf, ofile, sep = ";", quote = F)
+})
+```
+
+```{r export-data-for-phewas-no-base, eval = F, include = F}
+# ChromHMM + Baseline + Dex
+
+system(paste0("mkdir -p ", out.dir.pre, "for_phewas/cpg_level/"))
+
+sapply(blood.cell.types.of.interest, function(blood.type){
+  chromhmm.df <- chromhmm.cpgs.df[state %in% chromhmm.states.of.interest][Salas %in% blood.type]
+  if (blood.type == "Bmem+Bnv") 
+    blood.type <- c("Bmem")
+  intersected.ids <- intersect(setdiff(meqtl.dex.bcc.fdr.df[Type %in% blood.type, ]$CpG_ID,
+                                       meqtl.veh.bcc.fdr.df[Type %in% blood.type, ]$CpG_ID),
+                               chromhmm.df$CpG_ID) 
+
+  odf   <- ind.meqtl.delta.df[CpG_ID %in% intersected.ids][Type %in% blood.type] %>% 
+    dplyr::select(-meth_level) %>% mutate(Phenotype = "no_base")
+  ofile <- paste0(out.dir.pre, "for_phewas/cpg_level/delta_meqtls_", blood.type, "_no_base.csv")
+
+  fwrite(odf, ofile, sep = ";", quote = F)
+})
+```
+

@@ -1,0 +1,708 @@
+
+```{r include = F, eval = T}
+source("~/mpip/projects/dex-stim-human-array/code/integrative/util.R")
+source("~/bio/code/mpip/dex-stim-human-array/code/integrative/util.R")
+```
+
+***
+# __Identification of independent meQTLs__
+***
+
+## Methodology
+
+The number of independent SNPs per cis-region was identified by LD pruning and clumping the SNPs using the “clump” command in PLINK (using distance < __200 kb__ and __r2 > 0.2__ as setting). Each SNP forms a SNP bin, by aggregating all other SNPs into bins by the tag SNP at r2 > 0.2 and distance < 200 kb, such that all SNPs within a given bin were correlated to the current SNP, but to any other SNP. 
+
+All meQTLs passed the significance threshold of FDR = 0.05. 
+
+```{r include = F, eval = T}
+cbPalette <- c("#0072B2", "#009E73", "#E69F00")
+```
+
+```{r, include = F, eval = T}
+library(data.table)
+out.dir.pre  <- "~/bio/code/mpip/dex-stim-human-array/output/data/integrative/matrixEQTL/meqtls/region_wise_independent_snps/"
+
+meqtl.dex.fn   <- paste0(out.dir.pre, "me-qtl_cis_indp_rw_dex_fdr_005.csv")
+meqtl.veh.fn   <- paste0(out.dir.pre, "me-qtl_cis_indp_rw_veh_fdr_005.csv")
+meqtl.delta.fn <- paste0(out.dir.pre, "me-qtl_cis_indp_rw_delta_fdr_005.csv")
+
+col.names <-  c("CpG_ID", "SNP", "beta", "t-stat", "p-value", "fdr")
+
+ind.meqtl.dex.df   <- fread(meqtl.dex.fn) #, col.names = col.names)
+ind.meqtl.veh.df   <- fread(meqtl.veh.fn, col.names = col.names)
+ind.meqtl.delta.df <- fread(meqtl.delta.fn) #, col.names = col.names)
+```
+
+```{r, include = F, eval = T}
+meqtl.all.full.df <- rbind(ind.meqtl.dex.df[, treatment := "dex"],
+                           ind.meqtl.veh.df[, treatment := "veh"],
+                           ind.meqtl.delta.df[, treatment := "delta"])
+
+meqtl.all.full.df <- meqtl.all.full.df[!is.na(meqtl.all.full.df$fdr),]
+meqtl.all.full.df[["meQTL_ID"]] <- paste(meqtl.all.full.df$SNP, meqtl.all.full.df$CpG_ID, sep = "-")
+meqtl.all.full.df <- setDT(meqtl.all.full.df)
+```
+
+```{r include = F, eval = T}
+freq <- fread("/Users/anastasiia_hry/bio/code/mpip/dex-stim-human-array/data/snps/imputed_qc/from_janine/qc/freq.afreq")
+```
+
+## Significant Hits, FDR < 0.05
+
+```{r, include = F, eval = T}
+sign.hits.df <- data.table(c(ind.meqtl.delta.df$fdr  %>%  length(), 
+                             ind.meqtl.delta.df$CpG_ID %>% unique() %>% length(),
+                             ind.meqtl.delta.df$SNP %>% unique() %>% length()),
+                           c(ind.meqtl.dex.df$fdr  %>% length(), 
+                             ind.meqtl.dex.df$CpG_ID %>% unique() %>% length(),
+                             ind.meqtl.dex.df$SNP %>% unique() %>% length()),
+                           c(ind.meqtl.veh.df$fdr  %>% length(), 
+                             ind.meqtl.veh.df$CpG_ID %>% unique() %>% length(),
+                             ind.meqtl.veh.df$SNP %>% unique() %>% length()))
+
+sign.hits.df <- as.data.frame(sign.hits.df)
+rownames(sign.hits.df) <- c("cis-meQTLs", "CpG", "SNP")
+colnames(sign.hits.df) <- c("delta", "dex", "veh")
+```
+
+```{r out.width = "95%", include = T, eval = T}
+x <- sign.hits.df %>% as.matrix() %>% 
+  reshape2::melt(var.names = c("ID", "Treatment"), value.name = "cnt") %>% setDT()
+x[Var2 == "veh", Var2 := "baseline"]
+x[Var2 == "delta", Var2 := "GR-induced"]
+x %>%
+  ggplot(aes(y = cnt, x = Var2, fill = as.factor(as.numeric(Var2)))) +
+    geom_col() +
+    geom_text(aes(label = comma(cnt, accuracy = 1L), y = cnt), 
+                  stat = "identity", 
+                  vjust = -0.2, size = 2.5) + 
+    scale_y_continuous(labels = scientific) +
+    # scale_fill_viridis(discrete = TRUE, alpha = 0.9, option = "C") +
+    labs(title = " ", y = "Count", x = " ") + 
+    facet_wrap(~ Var1, ncol = 3) +
+    theme(legend.position = "none", 
+          legend.title = element_blank(),
+          panel.grid.major = element_blank(),
+          panel.background = element_blank(),
+          plot.title = element_text(size = 10),
+          axis.title = element_text(size = 8),
+          axis.title.x = element_blank()) +
+  scale_fill_manual(values = cbPalette[c(2, 3,1)])
+```
+
+## Upset plots{.tabset .tabset-fade .tabset-pills}
+
+### meQTL level
+  
+```{r out.width = "95%", include = T, eval = T}
+library(UpSetR)
+
+meqtls.meqtls <- list(delta = meqtl.all.full.df[treatment == "delta", meQTL_ID], 
+                      dex = meqtl.all.full.df[treatment == "dex", meQTL_ID], 
+                      veh = meqtl.all.full.df[treatment == "veh", meQTL_ID])
+
+upset(fromList(meqtls.meqtls), 
+      sets = c("delta", "dex", "veh"),
+      nsets = 3, 
+      nintersects = 20, 
+      mainbar.y.label = "Number of intersections, meQTL", 
+      text.scale = 1, 
+      keep.order = T,
+      sets.bar.color = c( "#0072B2", "#009E73", "#E69F00"), 
+      order.by = "freq")
+```
+
+### SNP level
+  
+```{r out.width = "95%", include = T, eval = T}
+library(UpSetR)
+
+meqtls.snps <- list(delta = ind.meqtl.delta.df$SNP, 
+                    dex = ind.meqtl.dex.df$SNP, 
+                    veh = ind.meqtl.veh.df$SNP)
+
+upset(fromList(meqtls.snps), 
+      sets = c("delta", "dex", "veh"),
+      nsets = 3, 
+      nintersects = 20, 
+      mainbar.y.label = "Number of intersections, SNP", 
+      text.scale = 1, 
+      keep.order = T,
+      sets.bar.color = c("#0072B2", "#009E73", "#E69F00"), 
+      order.by = "freq")
+```
+
+### CpG level
+
+```{r out.width = "95%", include = T, eval = T}
+library(UpSetR)
+
+meqtls.cpg <- list(delta = ind.meqtl.delta.df$CpG_ID, 
+                   dex = ind.meqtl.dex.df$CpG_ID, 
+                   veh = ind.meqtl.veh.df$CpG_ID)
+
+upset(fromList(meqtls.cpg), 
+      sets = c("delta", "dex", "veh"),
+      nsets = 3, 
+      nintersects = 10, 
+      mainbar.y.label = "Number of intersections, CpG", 
+      text.scale = 1, 
+      keep.order = T,
+      sets.bar.color = c("#0072B2", "#009E73", "#E69F00"), 
+      order.by = "freq",
+      )
+```
+
+## Scatter plot
+
+```{r out.width = "95%", include = T, eval = T}
+fdr.thr <- 0.05
+plot.title <- paste0("Independent and significant at FDR <= ", fdr.thr, " meQTLs.",
+                     "\nResult of MatrixEQTL")
+GetScatterPlot2(meqtl.all.full.df, plot.title = plot.title, cbPalette = cbPalette)
+```
+```{r out.width = "95%", include = T, eval = T}
+fdr.thr <- 0.05
+
+plot.title <- paste0("Independent and significant at FDR <= ", fdr.thr, " meQTLs.",
+                     "\nResult of MatrixEQTL")
+
+cbPalette <- c( "#0072B2", "#009E73", "#E69F00", "#F0E442", "#D55E00", "#CC79A7", "#56B4E9", "#999999")
+
+ggplot(meqtl.all.full.df, aes(x = `t-stat`, y = -log10(fdr), shape = treatment, color = treatment)) +
+  geom_point(alpha = 1.5, size = 1.2) +
+  scale_x_continuous(labels = scientific) +
+  geom_vline(xintercept = 0, colour = "#990000", linetype = "dashed") + 
+  geom_hline(yintercept = -log10(fdr.thr), colour = "#990000", linetype = "dashed") +
+  theme(legend.position = "bottom", 
+        legend.title = element_blank(),
+        panel.background = element_blank(),
+        plot.title = element_text(size = 10),
+        axis.title = element_text(size = 8)) +
+  labs(x = "t-stat, MatrixEQTL",
+       title = plot.title) +
+  scale_colour_manual(values = cbPalette)
+```
+
+## Visualisation
+
+```{r, include=F, eval=T}
+eqtm.in.pre  <- "~/bio/code/mpip/dex-stim-human-array/data/integrative/matrixEQTL/"
+
+snp.df.fn <- paste0(eqtm.in.pre, "snp_mtrx_with_na.csv")
+snp.df    <- fread(snp.df.fn)
+
+methyl.beta.df.fn   <- paste0(eqtm.in.pre, "methyl_beta_mtrx_dex.csv")
+methyl.beta.dex.df  <- fread(methyl.beta.df.fn) 
+
+methyl.beta.df.fn   <- paste0(eqtm.in.pre, "methyl_beta_mtrx_veh.csv")
+methyl.beta.veh.df  <- fread(methyl.beta.df.fn) 
+
+all(colnames(snp.df)[-1] == colnames(methyl.beta.dex.df)[-1])
+all(colnames(snp.df)[-1] == colnames(methyl.beta.veh.df)[-1])
+```
+
+### The most significant GR-meQTL with positive FC
+
+```{r include = T, eval = T}
+# paste0("Scatter plot for the independent significant at FDR <= ", fdr.thr, " meQTLs")
+# meqtl.id       <- meqtl.all.full.df[treatment == "delta"][fdr == min(fdr), meQTL_ID]
+# selected.meqtl <- meqtl.all.full.df[meQTL_ID %in% meqtl.id] # beta == max(beta)
+
+cpg.id <- "cg12777182"
+selected.meqtl <- meqtl.all.full.df[CpG_ID %in% cpg.id][treatment == "delta"][fdr == min(fdr)]
+
+kable(selected.meqtl %>% 
+        dplyr::select(SNP, CpG_ID, FC = beta, `t-stat`, `p-value`, FDR = fdr, Treatment = treatment) %>% 
+        mutate_if(is.numeric, funs(as.character(signif(., 3)))))
+```
+```{r, eval = T, include = F}
+plot.title <- paste0(# "Independent meQTL ", selected.meqtl$meQTL_ID, 
+                     "The most significant across GR-responsive meQTLs: ",
+                     "FC = ", signif(selected.meqtl$beta, 2), " and FDR = ", signif(selected.meqtl$fdr, 2))
+```
+```{r out.width = "95%", include = T, eval = T}
+GetScatterPlot(meqtl.all.full.df[treatment == "delta"], selected.meqtl, fdr.thr = 0.05,
+               plot.title = plot.title)
+```
+```{r out.width = "95%", include = T, eval = T}
+ProcessGetBoxPlot(methyl.beta.veh.df, methyl.beta.dex.df, snp.df, selected.meqtl[1], fdr.thr = 0.05, 
+                  plot.title = plot.title)
+```
+### The most significant GR-meQTL with negative FC
+
+```{r include = T, eval = T}
+meqtl.id       <- meqtl.all.full.df[treatment == "delta"][beta == min(beta)][order(fdr, decreasing = T)][1, meQTL_ID]
+selected.meqtl <- meqtl.all.full.df[meQTL_ID == meqtl.id]
+
+meqtl.id <- "rs9616713-cg08880347"
+snp.id <- "rs9616713"
+selected.meqtl <- meqtl.all.full.df[SNP %in% snp.id][fdr == min(fdr)]
+
+kable(selected.meqtl %>% 
+        select(SNP, CpG_ID, FC = beta, `t-stat`, `p-value`, FDR = fdr, Treatment = treatment) %>% 
+        mutate_if(is.numeric, funs(as.character(signif(., 3)))))
+```
+```{r, eval = T, include = F}
+plot.title <- paste0(# "Independent meQTL ", selected.meqtl$meQTL_ID, 
+                     "meQTL with minimum FC across GR-meQTLs: ",
+                     "FC = ", signif(selected.meqtl$beta, 2), " and FDR = ", signif(selected.meqtl$fdr, 2))
+```
+```{r out.width = "95%", include = T, eval = T}
+GetScatterPlot(meqtl.all.full.df[treatment == "delta"], selected.meqtl[treatment == "delta"], fdr.thr = 0.05,
+               plot.title = plot.title)
+```
+
+```{r out.width = "95%", include = T, eval = T}
+ProcessGetBoxPlot(methyl.beta.veh.df, methyl.beta.dex.df, snp.df, selected.meqtl[1], fdr.thr = 0.05, 
+                  plot.title = plot.title)
+```
+
+### Significant meQTL across all groups
+
+```{r include = T, eval = T}
+# paste0("Scatter plot for the independent significant at FDR <= ", fdr.thr, " meQTLs")
+meqtl.id       <- "rs2074989-cg20347269"
+selected.meqtl <- meqtl.all.full.df[meQTL_ID %in% meqtl.id] # beta == max(beta)
+
+kable(selected.meqtl %>% 
+        dplyr::select(SNP, CpG_ID, FC = beta, `t-stat`, `p-value`, FDR = fdr, Treatment = treatment) %>% 
+        mutate_if(is.numeric, funs(as.character(signif(., 3)))))
+```
+
+```{r, eval = T, include = F}
+plot.title <- paste0(# "Independent meQTL ", selected.meqtl$meQTL_ID, 
+                     "Significant meQTL across all groups: ",
+                     "delta FC = ", signif(selected.meqtl[treatment == "delta"]$beta, 2), " and delta FDR = ", signif(selected.meqtl[treatment == "delta"]$fdr, 2))
+```
+```{r out.width = "95%", include = T, eval = T}
+GetScatterPlot(meqtl.all.full.df, selected.meqtl, fdr.thr = 0.05,
+               plot.title = plot.title)
+```
+
+```{r out.width = "95%", include = T, eval = T}
+ProcessGetBoxPlot(methyl.beta.veh.df, methyl.beta.dex.df, snp.df, selected.meqtl[1], fdr.thr = 0.05, 
+                  plot.title = plot.title)
+```
+
+## Only veh and delta
+
+```{r include = F}
+# cbPalette <-c(baseline = "#E69F00", delta = "#0072B2")
+cbPalette <-c("grey", "#0072B2")
+```
+
+```{r out.width = "95%", include = T, eval = T}
+x <- sign.hits.df[, c("veh", "delta")] %>% as.matrix() %>% 
+  reshape2::melt(var.names = c("ID", "Treatment"), value.name = "cnt") %>% setDT()
+x[Var2 == "veh", Var2 := "baseline"]
+x[Var2 == "delta", Var2 := "GR-response"]
+x[Var2 %in% c("baseline", "GR-response"),] %>%
+  ggplot(aes(y = cnt, x = Var2, fill = as.factor(as.numeric(Var2)))) +
+    geom_col() +
+    geom_text(aes(label = comma(cnt, accuracy = 1L), y = cnt), 
+                  stat = "identity", 
+                  vjust = -0.5, size = 3) + 
+    scale_y_continuous(labels = scientific) +
+   scale_x_discrete(labels = c("baseline", "dex")) +
+    # scale_fill_viridis(discrete = TRUE, alpha = 0.9, option = "C") +
+    labs(title = " ", y = "Count", x = " ") + 
+    facet_wrap(~ Var1, ncol = 3) +
+    theme(legend.position = "none", 
+          legend.title = element_blank(),
+          panel.grid.major = element_blank(),
+          panel.background = element_blank(),
+          plot.title = element_text(size = 10),
+          axis.title = element_text(size = 8),
+          axis.title.x = element_blank()) +
+  scale_fill_manual(values = cbPalette)
+```
+
+## Upset plots{.tabset .tabset-fade .tabset-pills}
+
+### meQTL level
+  
+```{r out.width = "95%", include = T, eval = T}
+meqtls.meqtls <- list(delta = meqtl.all.full.df[treatment == "delta", meQTL_ID], 
+                      veh = meqtl.all.full.df[treatment == "veh", meQTL_ID])
+
+intersect.meqtls         <- intersect(meqtls.meqtls$delta, meqtls.meqtls$veh)
+perc.olap.delta.with.veh <- scales::percent(length(intersect.meqtls) / length(meqtls.meqtls$delta), accuracy = 0.1)
+perc.olap.veh.with.delta <- scales::percent(length(intersect.meqtls) / length(meqtls.meqtls$veh), accuracy = 0.1)
+
+plot.title <- "Number of intersections between delta and baseline meQTLs"
+
+ggVennDiagram::ggVennDiagram(meqtls.meqtls, 
+              category.names = c(paste0("GR-response, ", perc.olap.delta.with.veh), 
+                                 paste0("Baseline, ", perc.olap.veh.with.delta)), 
+              label_alpha = 0.7,
+              edge_size = 0,
+              set_geom = "text",
+              set_color = "black",
+              label = "count") +
+    theme(legend.position = "none", 
+          legend.title = element_blank(),
+          panel.background = element_blank(),
+          plot.title = element_text(size = 10, face="italic")) +
+    labs(x = "", y = "",
+         title = plot.title) +
+    scale_color_manual(values = cbPalette) +
+    scale_fill_gradient(low = alpha(cbPalette[2], 0.5), high = alpha(cbPalette[1], 0.5))
+```
+```{r}
+plot(euler(meqtls.meqtls),labels =  c(paste0("Delta, ", perc.olap.delta.with.veh), 
+                                 paste0("Baseline, ", perc.olap.veh.with.delta)),
+      
+     fills = list(fill = c(alpha(cbPalette[2], 0.5), alpha(cbPalette[1], 0.5)), alpha = 0.7),
+     edges = list(col = "white", lex = 2),
+     quantities = list(type = c("counts"), cex = 1))
+```
+
+### SNP level
+  
+```{r out.width = "95%", include = T, eval = T}
+meqtls.snps <- list(delta = ind.meqtl.delta.df$SNP, 
+                    veh = ind.meqtl.veh.df$SNP)
+
+intersect                <- intersect(meqtls.snps$delta, meqtls.snps$veh)
+perc.olap.delta.with.veh <- scales::percent(length(intersect) / length(meqtls.snps$delta), accuracy = 0.1)
+perc.olap.veh.with.delta <- scales::percent(length(intersect) / length(meqtls.snps$veh), accuracy = 0.1)
+
+plot.title <- "Number of intersections between delta and baseline meQTL SNPs"
+
+ggVennDiagram::ggVennDiagram(meqtls.snps, 
+              category.names = c(paste0("GR-response, ", perc.olap.delta.with.veh), 
+                                 paste0("Baseline, ", perc.olap.veh.with.delta)), 
+              label_alpha = 0.7,
+              edge_size = 0,
+              set_geom = "text",
+              set_color = "black",
+              label = "count") +
+    theme(legend.position = "none", 
+          legend.title = element_blank(),
+          panel.background = element_blank(),
+          plot.title = element_text(size = 10, face="italic")) +
+    labs(x = "", y = "",
+         title = plot.title) +
+    scale_color_manual(values = cbPalette) +
+    scale_fill_gradient(low = alpha(cbPalette[2], 0.5), high = alpha(cbPalette[1], 0.5))
+```
+
+### CpG level
+
+```{r out.width = "95%", include = T, eval = T}
+meqtls.cpg <- list(delta = ind.meqtl.delta.df$CpG_ID, 
+                   veh = ind.meqtl.veh.df$CpG_ID)
+
+intersect                <- intersect(meqtls.cpg$delta, meqtls.cpg$veh)
+perc.olap.delta.with.veh <- scales::percent(length(intersect) / length(meqtls.cpg$delta), accuracy = 0.1)
+perc.olap.veh.with.delta <- scales::percent(length(intersect) / length(meqtls.cpg$veh), accuracy = 0.1)
+
+plot.title <- "Number of intersections between delta and baseline meQTL CpGs"
+
+ggVennDiagram::ggVennDiagram(meqtls.cpg, 
+              category.names = c(paste0("GR-response, ", perc.olap.delta.with.veh), 
+                                 paste0("Baseline, ", perc.olap.veh.with.delta)), 
+              label_alpha = 0.7,
+              edge_size = 0,
+              set_geom = "text",
+              set_color = "black",
+              label = "count") +
+    theme(legend.position = "none", 
+          legend.title = element_blank(),
+          panel.background = element_blank(),
+          plot.title = element_text(size = 10, face="italic")) +
+    labs(x = "", y = "",
+         title = plot.title) +
+    scale_color_manual(values = cbPalette) +
+    scale_fill_gradient(low = alpha(cbPalette[2], 0.5), high = alpha(cbPalette[1], 0.5))
+```
+
+## Scatter plot
+
+```{r out.width = "95%", include = T, eval = T}
+fdr.thr <- 0.05
+plot.title <- paste0("Independent and significant at FDR <= ", fdr.thr, " meQTLs.",
+                     "\nResult of MatrixEQTL")
+GetScatterPlot2(meqtl.all.full.df[treatment %in% c("veh", "delta")], plot.title = plot.title, cbPalette = cbPalette[c(2,1)])
+```
+
+```{r out.width = "95%", include = T, eval = T}
+fdr.thr <- 0.05
+
+plot.title <- paste0("Independent and significant at FDR <= ", fdr.thr, " meQTLs.",
+                     "\nResult of MatrixEQTL")
+
+ggplot(meqtl.all.full.df[treatment %in% c("veh", "delta")], 
+       aes(x = `t-stat`, y = -log10(fdr), shape = treatment, color = treatment)) +
+  geom_point(alpha = 1.5, size = 1.2) +
+  scale_x_continuous(labels = scientific) +
+  geom_vline(xintercept = 0, colour = "#990000", linetype = "dashed") + 
+  geom_hline(yintercept = -log10(fdr.thr), colour = "#990000", linetype = "dashed") +
+  theme(legend.position = "bottom", 
+        legend.title = element_blank(),
+        panel.background = element_blank(),
+        plot.title = element_text(size = 10),
+        axis.title = element_text(size = 8)) +
+  labs(x = "t-stat, MatrixEQTL",
+       title = plot.title) +
+  scale_colour_manual(values = cbPalette)
+```
+## Allelic directions
+
+```{r include = F, eval = T}
+opposite.fc.delta.df     <- fread("~/bio/code/mpip/dex-stim-human-array/output/data/integrative/matrixEQTL/meqtls/meqtl_parallel_and_opposite_fc_groups/indep_meqtl_opposite_fc_gr_delta_df.csv")
+parallel.fc.delta.df   <- fread("~/bio/code/mpip/dex-stim-human-array/output/data/integrative/matrixEQTL/meqtls/meqtl_parallel_and_opposite_fc_groups/indep_meqtl_parallel_fc_gr_delta_df.csv")
+```
+
+```{r include = F}
+opposite.fc.delta.meqtls  <- data.frame(meQTL_ID = opposite.fc.delta.df$meQTL_ID %>% unique(), Group = "GR opposite FC")
+parallel.fc.delta.meqtls  <- data.frame(meQTL_ID = parallel.fc.delta.df$meQTL_ID %>% unique(), Group = "GR parallel FC")
+
+allel.dir.fc.delta.meqtls <- rbind(opposite.fc.delta.meqtls, parallel.fc.delta.meqtls)
+```
+
+```{r}
+allel.dir.fc.delta.meqtls[["y"]] <- "Group"
+ggplot(allel.dir.fc.delta.meqtls, aes( y = y, fill = Group, colour = Group)) + 
+  geom_bar(position = "stack", stat = "count", alpha = 0.5) + 
+  stat_count(geom = "text",
+             aes(label = scales::percent((..count..)/sum(..count..), accuracy = 0.1)),
+             angle = 0,  vjust = 0.5, hjust = 1.1, colour = "black", cex = 4) +
+  stat_count(geom = "text",
+             aes(label = ..count..),
+             angle = 0,  vjust = -1, hjust = 1.5, colour = "black", cex = 4) +
+  theme(legend.position = "top", 
+        legend.title = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.background = element_blank(),
+        plot.title = element_text(size = 10),
+        axis.title = element_text(size = 10),
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank(), 
+        axis.ticks.x = element_blank(),
+        axis.ticks.y = element_blank()) +
+  labs(title = "Distribution of parallel and opposite GR-meQTLs", 
+       y = "", 
+       x = "")
+```
+
+### Examples {.tabset .tabset-fade .tabset-pills}
+
+#### Oposite FC
+
+```{r include = T, eval = T}
+# paste0("Scatter plot for the independent significant at FDR <= ", fdr.thr, " meQTLs")
+meqtl.id       <- opposite.fc.delta.meqtls$meQTL_ID
+selected.meqtl <- meqtl.all.full.df[treatment == "delta"][meQTL_ID %in% meqtl.id][fdr == min(fdr)]
+```
+
+```{r, eval = T, include = F}
+plot.title <- paste0(# "Independent meQTL ", selected.meqtl$meQTL_ID, 
+                     "The most significant delta meQTL with opposite FC: ",
+                     "delta FC = ", signif(selected.meqtl[treatment == "delta"]$beta, 2), " and delta FDR = ", signif(selected.meqtl[treatment == "delta"]$fdr, 2))
+```
+
+```{r out.width = "95%", include = T, eval = T}
+ProcessGetBoxPlot(methyl.beta.veh.df, methyl.beta.dex.df, snp.df, selected.meqtl, fdr.thr = 0.05, 
+                  plot.title = plot.title)
+```
+
+#### Parallel FC
+
+```{r include = T, eval = T}
+# paste0("Scatter plot for the independent significant at FDR <= ", fdr.thr, " meQTLs")
+meqtl.id       <- parallel.fc.delta.meqtls$meQTL_ID
+selected.meqtl <- meqtl.all.full.df[treatment == "delta"][meQTL_ID %in% meqtl.id][fdr == min(fdr)]
+```
+
+```{r, eval = T, include = F}
+plot.title <- paste0(# "Independent meQTL ", selected.meqtl$meQTL_ID, 
+                     "The most significant delta meQTL with parallel FC: ",
+                     "delta FC = ", signif(selected.meqtl[treatment == "delta"]$beta, 2), " and delta FDR = ", signif(selected.meqtl[treatment == "delta"]$fdr, 2))
+```
+
+```{r out.width = "95%", include = T, eval = T}
+ProcessGetBoxPlot(methyl.beta.veh.df, methyl.beta.dex.df, snp.df, selected.meqtl[1], fdr.thr = 0.05, 
+                  plot.title = plot.title)
+```
+
+## Comparison to GR-DMPs
+
+```{r include = F}
+dmps.cpgs <- fread("/Users/anastasiia_hry/bio/code/mpip/dex-stim-human-array/output/data/methylation/02_dmp/dmps_fdr01_fc02_anno_full.csv", select = "PROBE_ID", col.names = "CpG_ID")
+```
+
+```{r out.width = "95%", include = T, eval = T}
+meqtls.cpg <- list(delta = ind.meqtl.delta.df$CpG_ID, 
+                   dmps = dmps.cpgs$CpG_ID)
+
+intersect                <- intersect(meqtls.cpg$delta, meqtls.cpg$dmps)
+perc.olap.delta.with.veh <- scales::percent(length(intersect) / length(meqtls.cpg$delta), accuracy = 0.1)
+perc.olap.veh.with.delta <- scales::percent(length(intersect) / length(meqtls.cpg$dmps), accuracy = 0.1)
+
+plot.title <- "Number of intersections between delta meQTL CpGs and GR-DMPs"
+
+ggVennDiagram(meqtls.cpg, 
+              category.names = c(paste0("GR meQTL CpGs, ", perc.olap.delta.with.veh), 
+                                 paste0("GR DMPs, ", perc.olap.veh.with.delta)), 
+              label_alpha = 0.7,
+              edge_size = 0,
+              set_geom = "text",
+              set_color = "black",
+              label = "count") +
+    theme(legend.position = "none", 
+          legend.title = element_blank(),
+          panel.background = element_blank(),
+          plot.title = element_text(size = 10, face="italic")) +
+    labs(x = "", y = "",
+         title = plot.title) +
+    scale_color_manual(values = cbPalette) +
+    scale_fill_gradient(low = cbPalette[2], high = "transparent")
+```
+```{r out.width = "95%", include = T, eval = T}
+meqtls.cpg <- list(baseline = ind.meqtl.veh.df$CpG_ID, 
+                   dmps = dmps.cpgs$CpG_ID)
+
+intersect                <- intersect(meqtls.cpg$baseline, meqtls.cpg$dmps)
+perc.olap.delta.with.veh <- scales::percent(length(intersect) / length(meqtls.cpg$baseline), accuracy = 0.1)
+perc.olap.veh.with.delta <- scales::percent(length(intersect) / length(meqtls.cpg$dmps), accuracy = 0.1)
+
+plot.title <- "Number of intersections between baseline meQTL CpGs and GR-DMPs"
+
+ggVennDiagram(meqtls.cpg, 
+              category.names = c(paste0("baseline meQTL CpGs, ", perc.olap.delta.with.veh), 
+                                 paste0("GR DMPs, ", perc.olap.veh.with.delta)), 
+              label_alpha = 0.7,
+              edge_size = 0,
+              set_geom = "text",
+              set_color = "black",
+              label = "count") +
+    theme(legend.position = "none", 
+          legend.title = element_blank(),
+          panel.background = element_blank(),
+          plot.title = element_text(size = 10, face="italic")) +
+    labs(x = "", y = "",
+         title = plot.title) +
+    scale_color_manual(values = cbPalette) +
+    scale_fill_gradient(high = cbPalette[1], low = "transparent")
+```
+
+```{r out.width = "95%", include = T, eval = T}
+meqtls.cpg <- list(dex = ind.meqtl.dex.df$CpG_ID, 
+                   dmps = dmps.cpgs$CpG_ID)
+
+intersect                <- intersect(meqtls.cpg$dex, meqtls.cpg$dmps)
+perc.olap.delta.with.veh <- scales::percent(length(intersect) / length(meqtls.cpg$dex), accuracy = 0.1)
+perc.olap.veh.with.delta <- scales::percent(length(intersect) / length(meqtls.cpg$dmps), accuracy = 0.1)
+
+plot.title <- "Number of intersections between dex meQTL CpGs and GR-DMPs"
+
+ggVennDiagram(meqtls.cpg, 
+              category.names = c(paste0("GR meQTL CpGs, ", perc.olap.delta.with.veh), 
+                                 paste0("GR DMPs, ", perc.olap.veh.with.delta)), 
+              label_alpha = 0.7,
+              edge_size = 0,
+              set_geom = "text",
+              set_color = "black",
+              label = "count") +
+    theme(legend.position = "none", 
+          legend.title = element_blank(),
+          panel.background = element_blank(),
+          plot.title = element_text(size = 10, face="italic")) +
+    labs(x = "", y = "",
+         title = plot.title) +
+    scale_color_manual(values = cbPalette) +
+    scale_fill_gradient(high = cbPalette[3], low = "transparent")
+```
+
+## Distances SNP to CpG
+
+## Distances
+
+```{r out.width = "100%", include = T, eval = T}
+library(mltools)
+library(ggrepel)
+
+meqtl.delta.full.df <- fread("~/bio/code/mpip/dex-stim-human-array/output/data/integrative/matrixEQTL/meqtls/region_wise_independent_snps/me-qtl_cis_indp_rw_delta_fdr_005_with_distances.csv")
+meqtl.delta.full.df[, abs_dist := dist]
+meqtl.delta.full.df[strand == "-", dist := - abs_dist ]
+
+fdr.thr <- 0.05
+
+avg.dist <- median(meqtl.delta.full.df$abs_dist)
+
+bins.df <- data.frame(DistanceInterval = mltools::bin_data(data.table::data.table(meqtl.delta.full.df), binCol = "dist", bins =seq(-1e6, 1e6, by = 100000) , returnDT = F))
+
+ggplot(bins.df, aes(DistanceInterval)) + 
+  geom_bar(position = "identity", fill = cbPalette[2], colour = cbPalette[2], alpha = 0.1) +
+  stat_count(geom = "text", 
+             aes(label = comma(..count.., accuracy = 1L)),
+             position = position_dodge(1),  vjust = -1, colour = "black", cex = 4) +
+  annotate(geom = "text", x = 5,  y = 700, label = paste0("Median of distances between \nCpG and SNP: ", avg.dist, " bp"), color = "red", size = 12, fontface = "bold") +
+  theme(legend.position = c(.1,.9), 
+        legend.title = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.background = element_blank(),
+        axis.text.y = element_blank(),
+        axis.text.x = element_text(angle = 45, vjust = 0.8, size = 14, color = "black"),
+        plot.title = element_text(size = 18),
+        axis.title = element_text(size = 18)) +
+  labs(title = paste0("Distribution of cis-meQTLs, FDR = ", fdr.thr), 
+       x = "Distance Interval, bp", 
+       y = "No. cis-meQTLs") + 
+  scale_fill_manual(values = cbPalette[2])
+```
+
+```{r, include = F, eval = T}
+meqtl.delta.full.df <- fread("~/bio/code/mpip/dex-stim-human-array/output/data/integrative/matrixEQTL/meqtls/region_wise_independent_snps/me-qtl_cis_indp_rw_delta_fdr_005_with_distances.csv")
+
+meqtl.delta.full.df[, abs_dist := dist]
+meqtl.delta.full.df[strand == "-", dist := - abs_dist ]
+```
+
+```{r out.width = "100%", include = T, eval = T}
+ggplot(meqtl.delta.full.df, aes(x = dist, y = after_stat(count))) + 
+  geom_density( position = "identity", fill = cbPalette[2], colour = cbPalette[2], alpha = 0.1) +
+  theme(legend.position = c(.1,.9), 
+        legend.title = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.background = element_blank(),
+        plot.title = element_text(size = 10),
+        axis.title = element_text(size = 8)) +
+  labs(title = "Density of delta meQTLs plotted against distance from the CpG
+nearest sites in a +/- 1Mb window relative to each CpG site for each delta meQTL SNP.", 
+       x = "Distance from SNP, bp", 
+       y = "Density")
+```
+
+```{r out.width = "100%", include = T, eval = T}
+ggplot(meqtl.delta.full.df, aes(x = dist, y = -log10(fdr))) + 
+  geom_point(colour = cbPalette[2]) +
+  # scale_y_continuous(trans = "log10") + 
+  theme(legend.position = c(.1,.9), 
+        legend.title = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.background = element_blank(),
+        plot.title = element_text(size = 10),
+        axis.title = element_text(size = 8)) +
+  labs(title = "Delta meQTL p-values plotted against distance from the CpG
+nearest sites in a +/- 1Mb window relative to each CpG site for each delta meQTL SNP.", 
+       x = "Distance from SNP, bp", 
+       y = "-log10 FDR")
+```
+
+```{r out.width = "100%", include = T, eval = T}
+ggplot(meqtl.delta.full.df, aes(x = dist, y = beta)) + 
+  geom_point(colour = cbPalette[2]) +
+  theme(legend.position = c(.1,.9), 
+        legend.title = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.background = element_blank(),
+        plot.title = element_text(size = 10),
+        axis.title = element_text(size = 8)) +
+  labs(title = "Delta meQTL effect size plotted against distance from the CpG
+nearest sites in a +/- 1Mb window relative to each CpG site for each delta meQTL SNP.", 
+       x = "Distance from SNP, bp", 
+       y = "Effect size")
+```

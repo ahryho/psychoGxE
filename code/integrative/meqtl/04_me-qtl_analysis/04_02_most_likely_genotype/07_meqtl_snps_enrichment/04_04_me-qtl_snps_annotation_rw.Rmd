@@ -1,0 +1,784 @@
+---
+title: "cis-meQTLs Analysis. meSNP Enrichment Analysis"
+subtitle: "Dexamethasone-Stimulated Human Array Project"
+author: 
+  - name: Anastasiia Hryhorzhevska
+    email: anastasiia_hry@psych.mpg.de
+    url: https://github.com/ahryho
+    affiliation: Max Planck Institute of Psychiatry
+    affiliation_url: https://www.psych.mpg.de/2664393/medizinische-genomforschung
+date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    df_print: paged
+    css: ../style.css
+    code_folding: hide
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r, include=FALSE}
+options(digits = 4, width = 100, stringsAsFactors = T)
+knitr::opts_chunk$set(echo = TRUE,
+                      tidy.opts = list(width.cutoff = 100),
+                      tidy=TRUE,
+                      fig.pos = "H",
+                      dpi = 200,
+                      warning = FALSE, 
+                      message = FALSE, 
+                      cache = TRUE, 
+                      cache.lazy = FALSE)
+
+# define DT as the standard printing method for data.frame
+library(knitr)
+library(DT)
+knit_print.data.frame <- function(x, ...) {
+  knit_print(DT::datatable(x,
+                           filter="top",
+                           rownames = FALSE,
+                           extensions = "FixedColumns",
+                           options = list(
+                             scrollX = TRUE,
+                             pageLength = 5
+                             
+                           )), ...)
+}
+
+registerS3method("knit_print", "data.frame", knit_print.data.frame)
+```
+
+# __Functional SNP annotation__
+***
+
+```{r, include = F, eval = T}
+library(data.table)
+library(dplyr)
+
+library(ggplot2)
+library(ggrepel)
+library(scales)
+library(GGally)
+library(viridis)
+
+library(splitstackshape)
+library(reshape2)
+library(IRanges)
+library(biomaRt)
+
+require(foreign)
+library(parallel)
+library(foreach)
+library(doParallel)
+
+library(gUtils)
+
+library(officer)
+
+library(here)
+```
+
+Load functions
+
+```{r}
+setwd("~/bio/code/mpip/dex-stim-human-array/")
+
+file.sources <- c("code/util.R",
+                  "code/integrative/meqtl/04_me-qtl_analysis/04_04_me-qtl_snp_annotation/PlotChromHMMEnrichment.R",
+                  "code/integrative/meqtl/04_me-qtl_analysis/04_04_me-qtl_snp_annotation/SavePPTXChromHMMEnrichmentPlot.R")
+                  
+sapply(file.sources, source, .GlobalEnv)
+```
+
+```{r}
+out.dir.pre      <- "~/bio/code/mpip/dex-stim-human-array//output/data/integrative/matrixEQTL/meqtls/region_wise_independent_snps/"
+```
+
+```{r include = F, eval = T}
+delta.meqtl.snp.anno.rds              <- readRDS(paste0(out.dir.pre, "meqtls_snp_annotated_withChIPseeker_delta.rds"))
+veh.meqtl.snp.anno.rds                <- readRDS(paste0(out.dir.pre, "meqtls_snp_annotated_withChIPseeker_veh.rds"))
+dex.meqtl.snp.anno.rds                <- readRDS(paste0(out.dir.pre, "meqtls_snp_annotated_withChIPseeker_dex.rds"))
+```
+
+## Illumina {.tabset .tabset-fade .tabset-pills}
+
+### Example of annotated SNPs {.tabset .tabset-fade .tabset-pills}
+
+<!-- #### Full anno -->
+
+```{r include = T, eval = T, fig.cap = "Annotation with ChIPseeker, delta"}
+delta.meqtl.snp.anno.df <- as.data.frame(delta.meqtl.snp.anno.rds@anno, row.names = names(delta.meqtl.snp.anno.rds@anno))
+# delta.meqtl.snp.anno.df$Relation_to_Island <- factor(delta.meqtl.cpg.anno.df$Relation_to_Island, 
+#                                                      levels = c("N_Shelf", "N_Shore", "Island", "S_Shore", "S_Shelf", "OpenSea"))
+head(delta.meqtl.snp.anno.df, 10)
+```
+
+### Gene regions
+
+```{r include = F, eval = T}
+delta.meqtl.snp.anno.stat.df <- delta.meqtl.snp.anno.rds@annoStat
+veh.meqtl.snp.anno.stat.df   <- veh.meqtl.snp.anno.rds@annoStat
+dex.meqtl.snp.anno.stat.df   <- dex.meqtl.snp.anno.rds@annoStat
+
+delta.meqtl.snp.anno.stat.df[["Model"]] <- as.factor("Delta")
+veh.meqtl.snp.anno.stat.df[["Model"]]   <- as.factor("Baseline")
+dex.meqtl.snp.anno.stat.df[["Model"]]   <- as.factor("Dex")
+
+meqtl.snp.anno.stat.df <- rbind(delta.meqtl.snp.anno.stat.df,
+                                veh.meqtl.snp.anno.stat.df,
+                                dex.meqtl.snp.anno.stat.df)
+
+meqtl.snp.anno.stat.df$Feature   <- factor(meqtl.snp.anno.stat.df$Feature)
+meqtl.snp.anno.stat.df$Frequency <- signif(meqtl.snp.anno.stat.df$Frequency, 3)
+```
+
+```{r out.width = "90%", fig.cap = "Distribution of gene-centric locations of the SNPs based on Illumina EPIC annotation", include = T, eval = T}
+cbPalette <- c("#88CCEE", "#CC6677", "#DDCC77", "#117733", "#332288", "#AA4499", "#44AA99", "#999933", "#882255", "#661100", "#6699CC", "#888888")
+
+ggplot(meqtl.snp.anno.stat.df, aes(x = Model, y = Frequency, fill = Feature)) + 
+  geom_bar( position = "fill", stat = "identity") + 
+  geom_text(data = subset(meqtl.snp.anno.stat.df, Frequency > 2),
+            aes(by = Model, label = Frequency), 
+            position = position_fill(vjust = .5), size = 3) +
+  labs(x = "",
+       y = "Percentage of SNPs", 
+       title = "meSNP annotation from UCSC for the hg19 genome build using TxDb.Hsapiens.UCSC.hg19.knownGene and ChIPseeker Bioconductor R packages") +
+  theme(legend.position = "right",
+        panel.grid.major = element_blank(),
+        panel.background = element_blank(),
+        plot.title = element_text(size = 8),
+        axis.title = element_text(size = 8),
+        axis.text.x = element_text(angle = 0, hjust = 0.5)) +
+   scale_fill_manual("Feature", values = cbPalette)
+```
+
+```{r out.width = "90%", fig.cap = "Distribution of gene-centric locations of the delta meSNPs based on Illumina EPIC annotation", include = T, eval = T}
+cbPalette <- c("#88CCEE", "#CC6677", "#DDCC77", "#117733", "#332288", "#AA4499", "#44AA99", "#999933", "#882255", "#661100", "#6699CC", "#888888")
+
+ggplot(meqtl.snp.anno.stat.df[meqtl.snp.anno.stat.df$Model == "Delta", ], aes(x = Model, y = Frequency, fill = Feature)) + 
+  geom_col() + 
+  geom_text(
+    data = subset(meqtl.snp.anno.stat.df[meqtl.snp.anno.stat.df$Model == "Delta", ], Frequency > 2),
+    aes(by = Model, label = paste0(Frequency, "%")), position = position_stack(vjust = 0.8, ), size = plt.axis.size / 2.1, color = "white") +
+  coord_polar(theta = 'y', start = 0) +
+  labs(x = " ",
+       y = "Percentage of SNPs", 
+       title = "") +
+  theme(legend.position = "right",
+        legend.title = element_blank(),
+        legend.text = element_text(size = 10),
+        panel.grid.major = element_blank(),
+        panel.background = element_blank(),
+        plot.title = element_text(size = 8),
+        axis.title = element_text(size = 8),
+        axis.text.x = element_blank()) +
+  scale_fill_manual("Feature", values = cbPalette)
+```
+
+# __Enrichment of gene-centric locations__
+***
+
+## Delta vs Baseline
+```{r eval = F}
+# To DO
+
+gen.loc.enrich.perm.rslt <- fread(paste0(dir.pre, "~/bio/code/mpip/dex-stim-human-array/output/data/integrative/matrixEQTL/05_me-qtl_enrichment/region_wise_independent_snps/meqtl_"))
+```
+
+## Chromatin States {.tabset .tabset-fade .tabset-pills}
+
+### Annotation table
+
+```{r include = F, eval = T}
+chromhmm.states     <- readRDS("~/bio/code/mpip/dex-stim-human-array/data/annotation/chromHMM/chromhmm_states.Rds") %>% setDT()
+
+chromhmm.states[COLOR.NAME == "Silver", COLOR.NAME := "Grey"] 
+chromhmm.states[COLOR.NAME == "White", COLOR.NAME := "Snow"] 
+
+cbPalette <- chromhmm.states$COLOR.NAME
+
+chromhmm.epigenomes <- read.csv("~/bio/code/mpip/dex-stim-human-array/data/annotation/chromHMM/epigenomes.tsv", sep = "\t")
+```
+
+```{r func-plot-chromhmm-states, include = F, eval = T}
+GetChromHMMPlotAll <- function(df, cbPalette = NULL, plot.title = NULL){
+  
+  df$annot.type <- factor(df$annot.type, levels = chromhmm.states$STATE)
+  df$Model      <- factor(df$Model, levels = c("Delta", "Baseline", "Dex"))
+  
+  ggplot(df, aes(x = Model, fill = annot.type)) + 
+    geom_bar( position = "fill") + 
+    # coord_flip() +
+    # scale_y_reverse() +
+    geom_text(
+      aes(by = Model), 
+      stat = "prop", 
+      position = position_fill(vjust = .5), size = 3) +
+    labs(x = "",
+       y = "Percentage of SNPs", 
+       title = plot.title) +
+    theme(legend.position = "right", 
+          panel.grid.major = element_blank(),
+          panel.background = element_blank(),
+          plot.title = element_text(size = 8),
+          axis.title = element_text(size = 8)) +
+    scale_fill_manual("", values = cbPalette) 
+}
+```
+
+```{r read-chromhmm-anno-delta, eval = T, include = F}
+delta.meqtls.snp.chromhmm.annotated.df <- fread(paste0(out.dir.pre, "meqtls_snp_chromhmm_annotated_delta.csv"))
+
+delta.meqtls.snp.chromhmm.annotated.df[, Model := "Delta"]
+```
+
+```{r read-chromhmm-anno-veh, eval = T, include = F}
+veh.meqtls.snp.chromhmm.annotated.df <- fread(paste0(out.dir.pre, "meqtls_snp_chromhmm_annotated_veh.csv"))
+
+veh.meqtls.snp.chromhmm.annotated.df[, Model := "Baseline"]
+```
+
+```{r read-chromhmm-anno-dex, eval = T, include = F}
+dex.meqtls.snp.chromhmm.annotated.df <- fread(paste0(out.dir.pre, "meqtls_snp_chromhmm_annotated_dex.csv"))
+
+dex.meqtls.snp.chromhmm.annotated.df[, Model := "Dex"]
+```
+
+```{r eval = T, include = F}
+meqtls.snp.chromhmm.annotated.plt.df <- rbind(delta.meqtls.snp.chromhmm.annotated.df, 
+                                              veh.meqtls.snp.chromhmm.annotated.df,
+                                              dex.meqtls.snp.chromhmm.annotated.df)
+```
+
+```{r include = T, eval = T}
+head(meqtls.snp.chromhmm.annotated.plt.df %>% dplyr::select(SNP, everything()), 100) 
+```
+
+### All cell types
+
+```{r out.width = "90%", fig.cap = "The distribution of CpGs in 15 chromatin states from 127 cell types", include = T, eval = T}
+
+df <- meqtls.snp.chromhmm.annotated.plt.df[, .(SNP, annot.name, Model)] %>% unique()
+
+plot.title <- "15 chromatin states from 127 cell types"
+
+df$annot.name <- factor(df$annot.name, levels = chromhmm.states$STATE)
+df$Model      <- factor(df$Model, levels = c("Delta", "Baseline", "Dex"))
+
+df.plt <- melt(table(df[, .(annot.name, Model)])) %>% 
+   group_by(annot.name, Model, value) %>%
+   group_by(Model) %>%
+   mutate(Prop = round(value / sum(value) * 100, 2))
+ 
+ggplot(df.plt, aes(x = Model, y = Prop, fill = annot.name )) + 
+    geom_bar( position = "fill",  stat = "identity") + 
+    geom_text(data = subset(df.plt, Prop > 1.5),
+        aes(label = Prop),
+        position = position_fill(vjust = .5), size = 3) +
+    labs(x = "",
+       y = "Percentage of SNPs", 
+       title = plot.title) +
+    theme(legend.position = "right", 
+          panel.grid.major = element_blank(),
+          panel.background = element_blank(),
+          plot.title = element_text(size = 8),
+          axis.title = element_text(size = 8)) +
+    scale_fill_manual("", values = cbPalette) 
+```
+
+### Blood and T-cell
+
+```{r out.width = "90%", fig.cap = "The distribution of CpGs in 15 chromatin states from 14 blood and T-cell types", include = T, eval = T}
+chromhmm.blood.states <- readRDS("~/bio/code/mpip/dex-stim-human-array/data/annotation/chromHMM/chromHMM_blood_states.Rds") 
+chromhmm.blood.eids   <- chromhmm.blood.states$code %>% unique()
+
+df <- meqtls.snp.chromhmm.annotated.plt.df[annot.code %in% chromhmm.blood.eids, .(SNP, annot.name, Model)] %>% unique()
+
+plot.title <- "15 chromatin states from 18 blood and T- & B-cell types"
+
+df$annot.name <- factor(df$annot.name, levels = chromhmm.states$STATE)
+df$Model      <- factor(df$Model, levels = c("Delta", "Baseline", "Dex"))
+
+df.plt <- melt(table(df[, .(annot.name, Model)])) %>% 
+   group_by(annot.name, Model, value) %>%
+   group_by(Model) %>%
+   mutate(Prop = round(value / sum(value) * 100, 2))
+ 
+  # write.csv2(df.plt[,-4],
+  #            file = "~/bio/code/mpip/dex-stim-human-array/output/data/integrative/matrixEQTL/05_me-qtl_enrichment/region_wise_independent_snps/meqtl_snps_chromHMM_blood_nr_overlap.csv",
+  #            row.names = F, quote = F)
+
+ggplot(df.plt, aes(x = Model, y = Prop, fill = annot.name )) + 
+    geom_bar( position = "fill",  stat = "identity") + 
+    geom_text(data = subset(df.plt, Prop > 1.5),
+        aes(label = Prop),
+        position = position_fill(vjust = .5), size = 3) +
+    labs(x = "",
+       y = "Percentage of SNPs", 
+       title = plot.title) +
+    theme(legend.position = "right", 
+          panel.grid.major = element_blank(),
+          panel.background = element_blank(),
+          plot.title = element_text(size = 8),
+          axis.title = element_text(size = 8)) +
+    scale_fill_manual("", values = cbPalette) 
+
+# GetChromHMMPlotAll(df, cbPalette, plot.title)
+```
+
+### Brain
+
+```{r out.width = "90%", fig.cap = "The distribution of CpGs in 15 chromatin states from 10 brain types", include = T, eval = T}
+chromhmm.brain.eids <- chromhmm.epigenomes[chromhmm.epigenomes$GROUP == "Brain", "EID"]
+
+df <- meqtls.snp.chromhmm.annotated.plt.df[annot.code %in% chromhmm.brain.eids, .(SNP, annot.name, Model)] %>% unique()
+
+plot.title <- "15 chromatin states from 10 brain types"
+
+ df$annot.name <- factor(df$annot.name, levels = chromhmm.states$STATE)
+ df$Model      <- factor(df$Model, levels = c("Delta", "Baseline", "Dex"))
+
+ df.plt <- melt(table(df[, .(annot.name, Model)])) %>% 
+   group_by(annot.name, Model, value) %>%
+   group_by(Model) %>%
+   mutate(Prop = round(value / sum(value) * 100, 1.5))
+ 
+ggplot(df.plt, aes(x = Model, y = Prop, fill = annot.name )) + 
+    geom_bar( position = "fill",  stat = "identity") + 
+    geom_text(data = subset(df.plt, Prop > 1),
+        aes(label = Prop),
+        position = position_fill(vjust = .5), size = 3) +
+    labs(x = "",
+       y = "Percentage of SNPs", 
+       title = plot.title) +
+    theme(legend.position = "right", 
+          panel.grid.major = element_blank(),
+          panel.background = element_blank(),
+          plot.title = element_text(size = 8),
+          axis.title = element_text(size = 8)) +
+    scale_fill_manual("", values = cbPalette) 
+
+# GetChromHMMPlotAll(df, cbPalette, plot.title)
+```
+
+# __Functional SNP enrichment__
+***
+
+## Chromatin States
+<!-- {.tabset .tabset-fade .tabset-pills} -->
+
+```{r eval = T, include = F}
+chromhmm.blood.states <- readRDS("~/bio/code/mpip/dex-stim-human-array/data/annotation/chromHMM/chromHMM_blood_states.Rds") 
+chromhmm.brain.states <- readRDS("~/bio/code/mpip/dex-stim-human-array/data/annotation/chromHMM/chromHMM_brain_states.Rds") 
+
+states.lst <- elementMetadata(chromhmm.blood.states)[, "type"] %>% unique() %>% sort()
+
+epigenome <- fread("~/bio/code/mpip/dex-stim-human-array/data/annotation/chromHMM/epigenomes.tsv",
+                   col.names = c("EID", "ORDER", "GROUP", "MNEMONIC", "NAME"))
+```
+
+```{r}
+out.dir.pre      <- "~/bio/code/mpip/dex-stim-human-array/output/data/integrative/matrixEQTL/05_me-qtl_enrichment/region_wise_independent_snps/"
+```
+
+### Blood
+
+```{r}
+tissue <- "blood"
+
+enrichment.rslts.fn <- paste0(out.dir.pre, "meqtl_snps_chromHMM_", tissue, "/", list.files(paste0(out.dir.pre, "meqtl_snps_chromHMM_", tissue)))
+
+pptx.template <- read_pptx("~/bio/code/mpip/dex-stim-human-array/output/plots/enrichment/meqtl_snp_chromHMM_enrichment.pptx")
+pptx.out      <- paste0("~/bio/code/mpip/dex-stim-human-array/output/plots/enrichment/meqtl_snp_chromHMM_", tissue, "_enrichment.pptx")
+
+SavePPTXChromHMMEnrichmentPlot(enrichment.rslts.fn, tissue, epigenome, pptx.template, pptx.out, plt.txt.size = 20)
+```
+
+```{r}
+  enrichment.all.df <- lapply(seq_along(enrichment.rslts.fn), function(i) {
+    eid   <- sub(".csv", "", sub(".*_", "", enrichment.rslts.fn[i]))
+    ename <- epigenome[EID == eid, NAME] 
+    # ename <- paste0(eid, ": ", ename)
+    
+    df <- data.frame(read.csv2(enrichment.rslts.fn[i]), eid = eid, ename = ename) %>% setDT()
+    df <- df[p_val_emp <= 0.05]
+    }) %>% bind_rows()
+
+chromhmm.snp.lst.df <- left_join(enrichment.all.df[, c("eid", "ename", "state")], 
+                                 delta.meqtls.snp.chromhmm.annotated.df[, .(SNP, annot.code, annot.name)],
+                                 by = c("eid" = "annot.code", "state" = "annot.name"))
+
+chromhmm.snp.state.lst.df  <- split(chromhmm.snp.lst.df, by = "state")
+
+# saveRDS(chromhmm.snp.state.lst.df, 
+#         "~/bio/code/mpip/dex-stim-human-array/output/data/integrative/matrixEQTL/05_me-qtl_enrichment/region_wise_independent_snps/dex_meqtl_snps_by_chromhmm_state_blood_significant.rds")
+
+chromhmm.ststes.of.interest <- c("2_TssAFlnk", "3_TxFlnk", "4_Tx", "5_TxWk", "6_EnhG", "7_Enh", "10_TssBiv", "14_ReprPCWk")
+```
+
+#### TssAFlnk
+
+```{r}
+state <- "2_TssAFlnk"
+  
+state.df            <- chromhmm.snp.state.lst.df[[state]]
+blood.types.df.lst  <- split(state.df, by = "ename")
+blood.types.snp.lst <- lapply(blood.types.df.lst, function(df) df$SNP)
+
+upset(fromList(blood.types.snp.lst), 
+        nsets = 12, 
+        nintersects = 50, 
+        queries = list(list(query = intersects, params = list("Primary neutrophils from peripheral blood"), color = "red"),
+                       list(query = elements, params = list("Primary T helper naive cells from peripheral blood"), color = "red"),
+                       list(query = elements, params = list("Primary T helper naive cells from peripheral blood"), color = "red")),
+        mainbar.y.label = paste0("Nr of intersections for ", state,  "\ndex SNPs"), 
+        keep.order = T,
+        order.by = "freq", 
+        text.scale = 1.3, 
+        line.size = 0.1,
+        mb.ratio = c(0.4, 0.6))
+```
+
+#### TxFlnk
+
+```{r}
+state <- "3_TxFlnk"
+  
+state.df            <- chromhmm.snp.state.lst.df[[state]]
+blood.types.df.lst  <- split(state.df, by = "ename")
+blood.types.snp.lst <- lapply(blood.types.df.lst, function(df) df$SNP)
+
+upset(fromList(blood.types.snp.lst), 
+        nsets = 12, 
+        nintersects = 50, 
+        # queries = list(list(query = elements, params = list("Primary T helper memory cells from peripheral blood 2"), color = "red")),
+        mainbar.y.label = paste0("Nr of intersections for ", state,  "\ndex SNPs"), 
+        keep.order = T,
+        order.by = "freq", 
+        text.scale = 1.3, 
+        line.size = 0.1,
+        mb.ratio = c(0.4, 0.6))
+```
+
+#### Tx
+
+```{r}
+state <- "4_Tx"
+  
+state.df            <- chromhmm.snp.state.lst.df[[state]]
+blood.types.df.lst  <- split(state.df, by = "ename")
+blood.types.snp.lst <- lapply(blood.types.df.lst, function(df) df$SNP)
+
+upset(fromList(blood.types.snp.lst), 
+        nsets = 12, 
+        nintersects = 50, 
+        queries = list(list(query = intersects, params = list("Primary neutrophils from peripheral blood"), color = "red")),
+        mainbar.y.label = paste0("Nr of intersections for ", state,  "\ndex SNPs"), 
+        keep.order = T,
+        order.by = "freq", 
+        text.scale = 1.3, 
+        line.size = 0.1,
+        mb.ratio = c(0.4, 0.6))
+```
+
+#### TxWk
+
+```{r}
+state <- "5_TxWk"
+  
+state.df            <- chromhmm.snp.state.lst.df[[state]]
+blood.types.df.lst  <- split(state.df, by = "ename")
+blood.types.snp.lst <- lapply(blood.types.df.lst, function(df) df$SNP)
+
+upset(fromList(blood.types.snp.lst), 
+        nsets = 12, 
+        nintersects = 50, 
+        queries = list(list(query = elements, params = list("Primary B cells from peripheral blood"), color = "red"),
+                       list(query = elements, params = list("Primary T cells effector/memory enriched from peripheral blood"), color = "red")),
+        mainbar.y.label = paste0("Nr of intersections for ", state,  "\ndex SNPs"), 
+        keep.order = T,
+        order.by = "freq", 
+        text.scale = 1.3, 
+        line.size = 0.1,
+        mb.ratio = c(0.4, 0.6))
+```
+
+#### EnhG 
+
+```{r}
+state <- "6_EnhG"
+  
+state.df            <- chromhmm.snp.state.lst.df[[state]]
+blood.types.df.lst  <- split(state.df, by = "ename")
+blood.types.snp.lst <- lapply(blood.types.df.lst, function(df) df$SNP)
+
+upset(fromList(blood.types.snp.lst), 
+        nsets = 12, 
+        nintersects = 100, 
+        queries = list(list(query = elements, params = list("Primary B cells from peripheral blood"), color = "red"),
+                       list(query = elements, params = list("Primary neutrophils from peripheral blood"), color = "red")),
+        mainbar.y.label = paste0("Nr of intersections for ", state,  "\ndex SNPs"), 
+        keep.order = T,
+        order.by = "freq", 
+        text.scale = 1.3, 
+        line.size = 0.1,
+        mb.ratio = c(0.4, 0.6))
+```
+
+#### Enh
+
+```{r}
+state <- "7_Enh"
+  
+state.df            <- chromhmm.snp.state.lst.df[[state]]
+blood.types.df.lst  <- split(state.df, by = "ename")
+blood.types.snp.lst <- lapply(blood.types.df.lst, function(df) df$SNP)
+
+upset(fromList(blood.types.snp.lst), 
+        nsets = 12, 
+        nintersects = 50, 
+        queries = list(list(query = elements, params = list("Primary T helper memory cells from peripheral blood 1"), color = "red"),
+                       list(query = elements, params = list("Primary T helper memory cells from peripheral blood 2"), color = "red"),
+                       list(query = elements, params = list("Primary B cells from peripheral blood"), color = "red"),
+                       list(query = elements, params = list("Primary neutrophils from peripheral blood"), color = "red"),
+                       list(query = elements, params = list("Primary T helper naive cells from peripheral blood"), color = "red"),
+                       list(query = elements, params = list("Primary T helper naive cells from peripheral blood"), color = "red")),
+                      # list(query = elements, params = list("Primary T cells effector/memory enriched from peripheral blood"), color = "red"),
+                      # list(query = elements, params = list("Primary T CD8+ memory cells from peripheral blood"), color = "red"),
+        mainbar.y.label = paste0("Nr of intersections for ", state,  "\ndex SNPs"), 
+        keep.order = T,
+        order.by = "freq", 
+        text.scale = 1.3, 
+        line.size = 0.1,
+        mb.ratio = c(0.4, 0.6))
+```
+
+#### TssBiv
+
+```{r}
+state <- "10_TssBiv"
+  
+state.df            <- chromhmm.snp.state.lst.df[[state]]
+blood.types.df.lst  <- split(state.df, by = "ename")
+blood.types.snp.lst <- lapply(blood.types.df.lst, function(df) df$SNP)
+
+upset(fromList(blood.types.snp.lst), 
+        nsets = 12, 
+        nintersects = 75, 
+        queries = list(list(query = elements, params = list("Primary T helper memory cells from peripheral blood 2"), color = "red")),
+        mainbar.y.label = paste0("Nr of intersections for ", state,  "\ndex SNPs"), 
+        keep.order = T,
+        order.by = "freq", 
+        text.scale = 1.3, 
+        line.size = 0.1,
+        mb.ratio = c(0.4, 0.6))
+```
+
+#### ReprPCWk
+
+```{r}
+state <- "14_ReprPCWk"
+  
+state.df            <- chromhmm.snp.state.lst.df[[state]]
+blood.types.df.lst  <- split(state.df, by = "ename")
+blood.types.snp.lst <- lapply(blood.types.df.lst, function(df) df$SNP)
+
+upset(fromList(blood.types.snp.lst), 
+        nsets = 12, 
+        nintersects = 75, 
+        queries = list(list(query = elements, params = list("Primary neutrophils from peripheral blood"), color = "red"),
+                       list(query = elements, params = list("Primary T helper naive cells from peripheral blood"), color = "red")),
+        mainbar.y.label = paste0("Nr of intersections for ", state,  "\ndex SNPs"), 
+        keep.order = T,
+        order.by = "freq", 
+        text.scale = 1.3, 
+        line.size = 0.1,
+        mb.ratio = c(0.4, 0.6))
+```
+
+### Brain
+
+```{r}
+tissue <- "brain"
+
+enrichment.rslts.fn <- paste0(out.dir.pre, "meqtl_snps_chromHMM_", tissue, "/", list.files(paste0(out.dir.pre, "meqtl_snps_chromHMM_", tissue)))
+
+pptx.template <- read_pptx("~/bio/code/mpip/dex-stim-human-array/output/plots/enrichment/meqtl_snp_chromHMM_enrichment.pptx")
+pptx.out      <- paste0("~/bio/code/mpip/dex-stim-human-array/output/plots/enrichment/meqtl_snp_chromHMM_", tissue, "_enrichment.pptx")
+
+SavePPTXChromHMMEnrichmentPlot(enrichment.rslts.fn, tissue, epigenome, pptx.template, pptx.out, plt.txt.size = 20)
+```
+
+#### Delta vs Baseline
+
+```{r eval = T, include = F}
+out.dir.pre  <- "~/bio/code/mpip/dex-stim-human-array/output/data/integrative/matrixEQTL/05_me-qtl_enrichment/region_wise_independent_snps/"
+chromhmm.blood.enrich.perm.rslt <- read.csv2(paste0(out.dir.pre, "meqtl_snps_chromHMM_blood_enrichment_delta_vs_veh.csv"))
+
+# chromhmm.blood.enrich.perm.rslt$state <- factor(chromhmm.blood.enrich.perm.rslt$state, levels = chromhmm.states$STATE)
+# # levels( chromhmm.blood.enrich.perm.rslt$state) <- chromhmm.states$DESCRIPTION
+# chromhmm.blood.enrich.perm.rslt$state <- sub("[0-9]*_", "", chromhmm.blood.enrich.perm.rslt$state) 
+```
+
+
+```{r out.width = "90%", fig.cap = "Histone mark enrichment for the delta meSNPs.  The Y-axis denotes the fold enrichment/depletion as compared to baseline meSNPs. Green bars indicate significant enrichment/depletion, grey bars non-significant differences based on permutation Fisher-tests empirical P <= 0.05. ", eval = T, include = T}
+PlotChromHMMEnrichment(chromhmm.blood.enrich.perm.rslt, plt.title = "Histone mark enrichment for the delta meSNPs, delta vs baseline")
+```
+
+```{r out.width = "90%", fig.cap = "Histone mark enrichment for the delta meSNPs. The Y-axis denotes the proportion of overlaps between meSNPs and blood cell type states.", eval = T, include = T}
+
+chromhmm.blood.enrich.perm.rslt$state <- factor(chromhmm.blood.enrich.perm.rslt$state, levels = chromhmm.states$STATE)
+chromhmm.blood.enrich.perm.rslt$state <- sub("[0-9]*_", "", chromhmm.blood.enrich.perm.rslt$state)
+
+chromhmm.blood.enrich.perm.rslt["prop"] <-  signif(chromhmm.blood.enrich.perm.rslt$n_snps_overlap / delta.meqtl.snp.anno.rds@peakNum * 100, 2)
+
+ggplot(chromhmm.blood.enrich.perm.rslt, aes(x = state, y = prop)) + 
+  geom_bar( stat = "identity", position = position_dodge()) +
+  # geom_text(aes(label = paste0(n_snps_overlap, " \n(", prop, "%)")), position = position_dodge(width = 0.9), vjust = -0.25, cex = 2) + 
+  geom_text(aes(label = n_snps_overlap), position = position_dodge(width = 0.9), vjust = -0.25, cex = 5) + 
+  labs(x = "",
+       y = "Overlaps, %", 
+       title = "") +
+  theme(legend.position = "bottom",
+        panel.grid.major = element_blank(),
+        panel.background = element_blank(),
+        plot.title = element_text(size = 8),
+        axis.title = element_text(size = 20),
+        axis.text.x = element_text(size = 0.75 * 20, angle = 90, hjust = 1, color = "black"),
+        axis.text.y = element_text(size = 0.75 * 20, angle = 90, color = "black")) +
+   scale_fill_manual("", values = c( "#009E73")) 
+```
+
+#### Delta vs All
+
+```{r eval = T, include = F}
+out.dir.pre  <- "~/bio/code/mpip/dex-stim-human-array/output/data/integrative/matrixEQTL/05_me-qtl_enrichment/region_wise_independent_snps/"
+chromhmm.blood.enrich.perm.rslt <- read.csv2(paste0(out.dir.pre, "meqtl_snps_chromHMM_blood_enrichment_delta_vs_all.csv"))
+```
+
+```{r}
+PlotChromHMMEnrichment(chromhmm.blood.enrich.perm.rslt, plt.title = "Histone mark enrichment for the delta meSNPs, delta vs all")
+```
+
+#### Baseline vs All
+
+```{r eval = T, include = F}
+out.dir.pre  <- "~/bio/code/mpip/dex-stim-human-array/output/data/integrative/matrixEQTL/05_me-qtl_enrichment/region_wise_independent_snps/"
+chromhmm.blood.enrich.perm.rslt <- read.csv2(paste0(out.dir.pre, "meqtl_snps_chromHMM_blood_enrichment_veh_vs_all.csv"))
+```
+
+```{r out.width = "90%", fig.cap = "Histone mark enrichment for the delta meSNPs.  The Y-axis denotes the fold enrichment/depletion of baseline meSNPs as compared to all SNPs. Green bars indicate significant enrichment/depletion, grey bars non-significant differences based on permutation Fisher-tests empirical P <= 0.05. ", eval = T, include = T}
+
+PlotChromHMMEnrichment(chromhmm.blood.enrich.perm.rslt, plt.title = "Histone mark enrichment for the veh meSNPs, over all SNPs")
+```
+
+### Brain
+
+#### Delta vs Baseline
+
+```{r out.width = "90%", fig.cap = "Histone mark enrichment for the delta meSNPs.  The Y-axis denotes the fold enrichment/depletion as compared to baseline meSNPs. Green bars indicate significant enrichment/depletion, grey bars non-significant differences based on permutation Fisher-tests empirical P <= 0.05. ", eval = T, include = T}
+chromhmm.brain.enrich.perm.rslt <- read.csv2(paste0(out.dir.pre, "meqtl_snps_chromHMM_brain_enrichment.csv"))
+PlotChromHMMEnrichment(chromhmm.brain.enrich.perm.rslt, plt.title = "Histone mark enrichment for the delta meSNPs, delta vs baseline")
+```
+
+```{r out.width = "90%", fig.cap = "Histone mark enrichment for the delta meSNPs. The Y-axis denotes the proportion of overlaps between meSNPs and brain cell type states.", eval = T, include = T}
+
+chromhmm.brain.enrich.perm.rslt$state <- factor(chromhmm.brain.enrich.perm.rslt$state, levels = chromhmm.states$STATE)
+chromhmm.brain.enrich.perm.rslt$state <- sub("[0-9]*_", "", chromhmm.brain.enrich.perm.rslt$state)
+
+chromhmm.brain.enrich.perm.rslt["prop"] <- signif(chromhmm.brain.enrich.perm.rslt$n_snps_overlap / delta.meqtl.snp.anno.rds@peakNum * 100, 2)
+
+ggplot(chromhmm.brain.enrich.perm.rslt, aes(x = state, y = prop)) + 
+  geom_bar( stat = "identity", position = position_dodge()) +
+# geom_text(aes(label = paste0(n_snps_overlap, " (", prop, "%)")), position = position_dodge(width = 0.9), vjust = -0.25, cex = 3) + 
+  geom_text(aes(label = n_snps_overlap), position = position_dodge(width = 0.9), vjust = -0.25, cex = 5) + 
+  labs(x = "",
+       y = "Overlaps, %", 
+       title = "") +
+  theme(legend.position = "bottom",
+        panel.grid.major = element_blank(),
+        panel.background = element_blank(),
+        plot.title = element_text(size = 8),
+        axis.title = element_text(size = 20),
+        axis.text.x = element_text(size = 0.75 * 20, angle = 90, hjust = 1, color = "black"),
+        axis.text.y = element_text(size = 0.75 * 20, angle = 90, color = "black")) +
+   scale_fill_manual("", values = c( "#009E73")) 
+```
+
+#### Delta vs All
+
+```{r eval = T, include = F}
+out.dir.pre  <- "~/bio/code/mpip/dex-stim-human-array/output/data/integrative/matrixEQTL/05_me-qtl_enrichment/region_wise_independent_snps/"
+chromhmm.brain.enrich.perm.rslt <- read.csv2(paste0(out.dir.pre, "meqtl_snps_chromHMM_brain_enrichment_delta_vs_all.csv"))
+
+PlotChromHMMEnrichment(chromhmm.brain.enrich.perm.rslt, plt.title = "Histone mark enrichment for the delta meSNPs, delta vs all")
+```
+
+#### Baseline vs All
+
+```{r eval = T, include = F}
+out.dir.pre  <- "~/bio/code/mpip/dex-stim-human-array/output/data/integrative/matrixEQTL/05_me-qtl_enrichment/region_wise_independent_snps/"
+chromhmm.brain.enrich.perm.rslt <- read.csv2(paste0(out.dir.pre, "meqtl_snps_chromHMM_brain_enrichment_veh_vs_all.csv"))
+
+PlotChromHMMEnrichment(chromhmm.brain.enrich.perm.rslt, plt.title = "Histone mark enrichment for the delta meSNPs, baseline vs all")
+```
+
+## GWAS Enrichment
+
+```{r eval = T, include = F}
+out.dir.pre  <- "~/bio/code//mpip/dex-stim-human-array/output/data/integrative/matrixEQTL/05_me-qtl_enrichment/region_wise_independent_snps/"
+gwas.enrich.perm.rslt <- read.csv2(paste0(out.dir.pre, "meqtl_snps_GWAS_enrichment_perm_1000.csv"))
+
+# gwas.enrich.perm.rslt ["data"] <- c("Nominal: p <= 0.05", "Genome-wide: p <= 5e-8")
+
+gwas.enrich.perm.rslt$odds.ratio <- as.numeric(gwas.enrich.perm.rslt$odds.ratio)
+gwas.enrich.perm.rslt$p_val      <- as.numeric(gwas.enrich.perm.rslt$p_val)
+gwas.enrich.perm.rslt$p_val_emp  <- as.numeric(gwas.enrich.perm.rslt$p_val_emp)
+
+gwas.enrich.perm.rslt$data   <- factor(gwas.enrich.perm.rslt$data)
+gwas.enrich.perm.rslt$data <- c("Cross Disorders", "ADHD", "ASD", "BP", "MDD", "IBD", "BMI", "SCZ", "PD")
+```
+
+
+```{r out.width = "90%", fig.cap = "Enrichment for nominal and genome-wide significant GWAS associations for the delta meSNPs for CrossDisorder GWAS. The Y-axis denotes the fold enrichment with regard to baseline meSNPs. Green bars indicate significant enrichment/depletion, grey bars non-significant differences based on permutation Fisher-tests empirical P <= 0.05.", eval = T, include = T}
+
+gwas.enrich.perm.rslt["is_sign"] <- ifelse(gwas.enrich.perm.rslt$p_val_emp < 0.05, "Significant", "Non-significant")
+
+ggplot(gwas.enrich.perm.rslt, aes(x = data, y = odds.ratio, fill = is_sign)) + 
+  geom_bar( stat = "identity", position = position_dodge()) +
+  geom_hline(yintercept = 1, color = "red") + 
+  labs(x = "",
+       y = "Odds ratio", 
+       title = "") +
+  theme(legend.position = "bottom",
+        legend.text = element_text(size = 14, colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.background = element_blank(),
+        plot.title = element_text(size = 8),
+        axis.title = element_text(size = 14),
+        axis.text.x = element_text(size = 14, angle = 0, colour = "black"),
+        axis.text.y = element_text(size = 14, angle = 0, colour = "black")) +
+   scale_fill_manual("", values = c( "#999999", "#009E73")) 
+```
+
+```{r out.width = "90%", fig.cap = "Enrichment of the delta meSNPs for different GWAS. The Y-axis denotes the proportion of overlaps between meSNPs and GWAS SNPs.", eval = T, include = T}
+
+gwas.enrich.perm.rslt["prop"] <-  signif(gwas.enrich.perm.rslt$n_snps_overlap / delta.meqtl.snp.anno.rds@peakNum * 100, 2)
+
+ggplot(gwas.enrich.perm.rslt, aes(x = data, y = prop)) + 
+  geom_bar( stat = "identity", position = position_dodge()) +
+# geom_text(aes(label = paste0(n_snps_overlap, "\n(", prop, "%)")), position = position_dodge(width = 0.9), vjust = -0.25, cex = 3) + 
+  geom_text(aes(label = n_snps_overlap), position = position_dodge(width = 0.9), vjust = -0.25, cex = 4) + 
+  labs(x = "",
+       y = "Overlaps, %", 
+       title = "") +
+  theme(legend.position = "bottom",
+        panel.grid.major = element_blank(),
+        panel.background = element_blank(),
+        plot.title = element_text(size = 8),
+        axis.title = element_text(size = 14),
+        axis.text.x = element_text(size = 14, angle = 0, colour = "black"),
+        axis.text.y = element_text(size = 14, angle = 0, colour = "black")) +
+   scale_fill_manual("", values = c( "#009E73")) 
+```

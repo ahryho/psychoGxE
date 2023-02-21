@@ -1,0 +1,151 @@
+---
+title: "MR-PheWAS Analysis: MR Analysis"
+subtitle: "Dexamethasone-Stimulated Human Array Project"
+author: 
+  - name: Anastasiia Hryhorzhevska
+    email: anastasiia_hry@psych.mpg.de
+    url: https://github.com/ahryho
+    affiliation: Max Planck Institute of Psychiatry
+    affiliation_url: https://www.psych.mpg.de/2664393/medizinische-genomforschung
+date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    df_print: paged
+    css: ../style.css
+    code_folding: hide
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r, include=FALSE}
+options(digits = 4, width = 100, stringsAsFactors = T)
+knitr::opts_chunk$set(echo = TRUE,
+                      tidy.opts = list(width.cutoff = 100),
+                      tidy=TRUE,
+                      fig.pos = "H",
+                      fig.width = 10,
+                      dpi = 1500,
+                      warning = FALSE, 
+                      message = FALSE, 
+                      cache = TRUE, 
+                      cache.lazy = FALSE,
+                      include = T,
+                      eval = T)
+
+# define DT as the standard printing method for data.frame
+library(knitr)
+library(DT)
+knit_print.data.frame <- function(x, ...) {
+  knit_print(DT::datatable(x,
+                           filter="top",
+                           rownames = FALSE,
+                           extensions = "FixedColumns",
+                           options = list(
+                             scrollX = TRUE,
+                             pageLength = 5
+                             
+                           )), ...)
+}
+
+registerS3method("knit_print", "data.frame", knit_print.data.frame)
+```
+
+```{r include = F}
+library(tidyverse)
+library(TwoSampleMR)
+library(ggplot2)
+library(data.table)
+```
+
+# 1: Load and prepare data
+
+```{r}
+dir.pre         <- "~/bio/code/mpip/dex-stim-human-array/"
+phewas.dir      <- paste0(dir.pre, "data/integrative/phewas/8_cell_type_groups/")
+mr.res.dir      <- paste0(dir.pre, "output/data/integrative/phewas/8_cell_type_groups/")
+
+system(paste0("mkdir -p ", mr.res.dir))
+```
+
+```{r}
+harmonised.data <- readRDS(paste0(phewas.dir, "harmonised_data_clumped.rds"))
+head(harmonised.data)
+```
+
+SNPs with `mr_keep=FALSE` are already deleted to facilitate further processing and analysis steps
+
+```{r}
+filtered.data <- harmonised.data %>% filter(mr_keep == TRUE)
+filtered.data
+```
+
+# 2: Mendelian randomisation (MR) analysis
+
+## 2.1: Wald ratio MR analysis
+
+Wald ratio MR analysis is performed for exposure-outcome combinations with 1 SNP only
+
+```{r, results='hide', message=FALSE, warning=FALSE}
+mr.res <- filtered.data %>%
+   mr_singlesnp(single_method = "mr_wald_ratio", all_method = "mr_ivw") %>%
+   filter(SNP != "All - Inverse variance weighted")
+```
+
+## 2.2: Multiple comparison correction
+
+Next, *P*-values are corrected for multiple comparisons using Benjamini-Hochberg method across all analyses
+
+```{r}
+mr.res$fdr <- p.adjust(mr.res$p, method = "BH")
+```
+
+**`r sum(mr.res$fdr < 0.05)`** *P*-values are below the corrected threshold.
+
+This is the *P*-value distribution:
+```{r, echo = FALSE}
+mr.res <- mr.res %>% setDT()
+
+mr.res[grepl("with_base", mr.res$exposure, fixed = TRUE), exposure.group := "base_dex"]
+mr.res[grepl("no_base", mr.res$exposure, fixed = TRUE), exposure.group := "dex"]
+
+mr.res[grepl("no_base_Neu", mr.res$exposure, fixed = TRUE), exposure.group := "no_base_Neu"]
+mr.res[grepl("no_base_CD8mem", mr.res$exposure, fixed = TRUE), exposure.group := "no_base_CD8mem"]
+# mr.res[grepl("no_base_CD4nv", mr.res$exposure, fixed = TRUE), exposure.group := "no_base_CD4nv"]
+mr.res[grepl("no_base_CD4mem", mr.res$exposure, fixed = TRUE), exposure.group := "no_base_CD4mem"]
+mr.res[grepl("no_base_Bmem", mr.res$exposure, fixed = TRUE), exposure.group := "no_base_Bmem"]
+
+mr.res[grepl("with_base_Neu", mr.res$exposure, fixed = TRUE), exposure.group := "with_base_Neu"]
+mr.res[grepl("with_base_CD8mem", mr.res$exposure, fixed = TRUE), exposure.group := "with_base_CD8mem"]
+# mr.res[grepl("with_base_CD4nv", mr.res$exposure, fixed = TRUE), exposure.group := "with_base_CD4nv"]
+mr.res[grepl("with_base_CD4mem", mr.res$exposure, fixed = TRUE), exposure.group := "with_base_CD4mem"]
+mr.res[grepl("with_base_Bmem", mr.res$exposure, fixed = TRUE), exposure.group := "with_base_Bmem"]
+
+ggplot(mr.res, aes(x = fdr)) +
+   geom_histogram(binwidth = 0.05, col = "darkgrey", fill = "lightgrey", alpha = 0.9) +
+   facet_wrap(~ exposure.group, scales = "free", ncol = 5) +
+   scale_x_continuous(breaks = seq(from = 0, to = 1, by = 0.1)) +
+   labs(y = "No. of Phenotypes") +
+   theme_bw() +
+   theme(legend.position = "top")
+```
+
+Results from these analyses (ordered by *FDR*) look as follows
+
+```{r}
+mr.res %>% arrange(fdr) %>% head()
+```
+
+# 3: Saving
+
+```{r}
+saveRDS(mr.res, file = paste0(mr.res.dir, "mr_results_clumped.rds"))
+```
+
+# Session Info
+
+```{r}
+sessionInfo()
+```
+

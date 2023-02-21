@@ -1,0 +1,212 @@
+---
+title: "MR-PheWAS Analysis: Exposure data preparation"
+subtitle: "Dexamethasone-Stimulated Human Array Project"
+author: 
+  - name: Anastasiia Hryhorzhevska
+    email: anastasiia_hry@psych.mpg.de
+    url: https://github.com/ahryho
+    affiliation: Max Planck Institute of Psychiatry
+    affiliation_url: https://www.psych.mpg.de/2664393/medizinische-genomforschung
+date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    df_print: paged
+    css: ../style.css
+    code_folding: hide
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r, include=FALSE}
+options(digits = 4, width = 100, stringsAsFactors = T)
+knitr::opts_chunk$set(echo = TRUE,
+                      tidy.opts = list(width.cutoff = 100),
+                      tidy=TRUE,
+                      fig.pos = "H",
+                      fig.width = 10,
+                      dpi = 1500,
+                      warning = FALSE, 
+                      message = FALSE, 
+                      cache = TRUE, 
+                      cache.lazy = FALSE,
+                      include = T,
+                      eval = T)
+
+# define DT as the standard printing method for data.frame
+library(knitr)
+library(DT)
+knit_print.data.frame <- function(x, ...) {
+  knit_print(DT::datatable(x,
+                           filter="top",
+                           rownames = FALSE,
+                           extensions = "FixedColumns",
+                           options = list(
+                             scrollX = TRUE,
+                             pageLength = 5
+                             
+                           )), ...)
+}
+
+registerS3method("knit_print", "data.frame", knit_print.data.frame)
+```
+
+# 1 Load and prepare data
+
+```{r include=FALSE}
+library(data.table)
+library(dplyr)
+library(tidyverse)
+library(TwoSampleMR) # remotes::install_github("MRCIEU/TwoSampleMR")
+```
+
+## Load data
+
+```{r innclude}
+# dir.pre     <-"/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/"
+# out.dir.pre <- "/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/integrative/matrixEQTL/meqtls/with_missingness/for_phewas/cpg_level/"
+
+dir.pre     <-"~/bio/code/mpip/dex-stim-human-array/"
+out.dir.pre <- paste0(dir.pre, "/output/data/integrative/matrixEQTL/meqtls/with_missingness/for_phewas/cpg_level/")
+
+meqtls.for.phewas.lst <- list.files(paste0(out.dir.pre), full.names = T)
+
+snps.df <- lapply(meqtls.for.phewas.lst, function(fn){
+  fread(fn, sep = ";")
+}) %>% bind_rows()
+
+# For two groups
+
+snps.df$Type <- ""
+```
+
+## Calculate standard error of effect size
+
+```{r}
+snps.df[, se := (beta / `t-stat`)]
+
+head(snps.df)
+```
+
+## Add SNP genomic coordinates and MAFs
+
+```{r echo=FALSE}
+snp.dir <- paste0(dir.pre, "data/snps/final_imputed_qc_snps/filtered_196_samples/")
+snp.loc <- fread(paste0(snp.dir, "dex_geno_imputed_maf.bim"), 
+                 col.names = c("snp_chr", "SNP", "snp_pos_morg", "snp_pos", "alt_allele", "ref_allele")) %>% 
+  select(-snp_pos_morg)
+snps.df <- left_join(snps.df, snp.loc)
+rm(snp.loc)
+
+snp.mafs <- fread(paste0(snp.dir, "dex_geno_imputed_maf_mafs_for_filtered_samples.frq")) %>% mutate(snp_maf = MAF)
+snps.df  <- left_join(snps.df, snp.mafs[, .(SNP, snp_maf)])
+rm(snp.mafs)
+
+head(snps.df)
+```
+
+## Add CpG genomic coordinates
+
+```{r}
+cpg.loc <- fread(paste0(dir.pre, "/data/integrative/matrixEQTL/cpg_locations.csv"),
+                 col.names = c("CpG_ID", "cpg_chr", "cpg_pos", "cpg_pos_end")) %>% 
+  select(-cpg_pos_end)
+
+snps.df <- left_join(snps.df, cpg.loc)
+
+rm(cpg.loc)
+
+head(snps.df)
+```
+
+## Remove duplicates
+
+For some SNPs, multiple CpGs are possible, so the CpG annotation is changed to reflect this possibility:
+
+```{r}
+reannotate_SNPs_with_duplicate_genes <- function(df)   {
+   df_duplicates <- df[duplicated(df$SNP) | duplicated(df$SNP, fromLast = TRUE),]
+   df_no_duplicates <- df[!duplicated(df$SNP) & !duplicated(df$SNP, fromLast = TRUE),]
+   
+   if (nrow(df_duplicates) > 0){
+        res.df <- lapply(unique(df_duplicates$SNP), function(snp){
+          df_snp = df_duplicates %>% filter(SNP == snp)
+          if(length(unique(df_snp$CpG_ID)) > 1) {
+            possible_exposure <- paste(df_snp$CpG_ID, collapse = " | ")
+            df_snp[1, "CpG_ID"] <- possible_exposure
+            } 
+        df_snp[1,]
+        }) %>% bind_rows()
+        df_no_duplicates <- rbind(df_no_duplicates, res.df)
+   } 
+   
+   return(df_no_duplicates)
+}
+
+blood.cell.types.of.interest <- snps.df$Type %>% unique()
+
+snsp.no.base.reannotated.df <- lapply(blood.cell.types.of.interest, function(blood.type)
+  reannotate_SNPs_with_duplicate_genes(snps.df[Phenotype == "no_base"][Type == blood.type,])) %>% bind_rows()
+
+snsp.with.base.reannotated.df <- lapply(blood.cell.types.of.interest, function(blood.type)
+  reannotate_SNPs_with_duplicate_genes(snps.df[Phenotype == "with_base"][Type == blood.type,])) %>% bind_rows()
+
+snsp.reannotated.df <- rbind(snsp.no.base.reannotated.df, snsp.with.base.reannotated.df)
+```
+
+# 2 TwoSampleMR Formatting
+
+Data are formatted and combined for use with *TwoSampleMR* package:
+
+```{r}
+snsp.reannotated.df[, Phenotype := (paste(Phenotype, Type, CpG_ID, sep = "_"))]
+snsp.reannotated.df <- na.omit(snsp.reannotated.df)
+
+exposure.data <- format_data(
+      snsp.reannotated.df, type = "exposure",
+      snp_col = "SNP",
+      pos_col = "snp_pos",
+      chr_col = "snp_chr",
+      phenotype_col = "Phenotype",
+      beta_col = "beta",
+      se_col = "se",
+      eaf_col = "snp_maf",
+      effect_allele_col = "alt_allele",
+      other_allele_col = "ref_allele",
+      pval_col = "fdr"
+)
+
+exposure.data
+```
+
+# 3 Clumping
+
+Exposure instruments are clumped as necessary using defaults clumping settings:
+
+```{r}
+exposure.data.unclumped <- exposure.data
+exposure.data           <- clump_data(exposure.data, clump_kb = 10000, clump_r2 = 0.001, pop = "EUR")
+
+exposure.data
+```
+
+# 4 Save data
+
+Data is saved locally:
+```{r}
+phewas.dir <- paste0(dir.pre, "data/integrative/phewas/", length(unique(snps.df$Phenotype)) * length(unique(snps.df$Type)) , "_cell_type_groups/")
+
+system(paste0("mkdir -p ", phewas.dir))
+
+saveRDS(exposure.data.unclumped, 
+        file = paste(phewas.dir, "exposure_data_unclumped.rds", sep = "/"))
+saveRDS(exposure.data, 
+        file = paste(phewas.dir, "exposure_data_clumped.rds", sep = "/"))
+```
+
+# Session Info
+
+```{r}
+sessionInfo()
+```

@@ -1,0 +1,547 @@
+---
+title: "cis-meQTLs analysis: Genotype with missingness. LD clumped results. Functional annotation and enrichment"
+subtitle: "Dexamethasone-Stimulated Human Array Project"
+author: 
+  - name: Anastasiia Hryhorzhevska
+    email: anastasiia_hry@psych.mpg.de
+    url: https://github.com/ahryho
+    affiliation: Max Planck Institute of Psychiatry
+    affiliation_url: https://www.psych.mpg.de/2664393/medizinische-genomforschung
+date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    df_print: paged
+    css: ../../../style.css
+    code_folding: hide
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r, include=FALSE}
+options(digits = 4, width = 100, stringsAsFactors = T)
+knitr::opts_chunk$set(echo = TRUE,
+                      tidy.opts = list(width.cutoff = 100),
+                      tidy=TRUE,
+                      fig.pos = "H",
+                      dpi = 200,
+                      warning = FALSE, 
+                      message = FALSE, 
+                      cache = TRUE, 
+                      cache.lazy = FALSE)
+
+# define DT as the standard printing method for data.frame
+library(knitr)
+library(DT)
+knit_print.data.frame <- function(x, ...) {
+  knit_print(DT::datatable(x,
+                           filter="top",
+                           rownames = FALSE,
+                           extensions = "FixedColumns",
+                           options = list(
+                             scrollX = TRUE,
+                             pageLength = 5
+                             
+                           )), ...)
+}
+
+registerS3method("knit_print", "data.frame", knit_print.data.frame)
+
+library(data.table)
+library(arrow)
+library(dplyr)
+
+library(ggplot2)
+library(ggrepel)
+library(scales)
+library(GGally)
+library(viridis)
+library(eulerr)
+
+library(here)
+```
+
+```{r include = F, eval = T}
+source("~/mpip/projects/dex-stim-human-array/code/integrative/util.R")
+```
+
+```{r plot-param, include = F, eval = T}
+cbPalette <- c("grey", "#0072B2")
+standard_textsize <- 12
+standard_dpi_fig  <- 600
+standard_width_mm_single <- 90
+standard_width_mm_double <- 180
+standard_height_mm <- 100
+```
+
+# Introduction
+
+This markdown provides comparison between two meQTL analysis after LD clumping. meQTL analysis were done using the R package _MatrixEQTL_. LD clumping was done using PLINK
+
+For all analysis, the same DNAm data were used which underwent following QC steps: 
+
+![DNAm QC](../../../data_overview/img/dnam_qc_roadmap.pdf){width=95%}
+
+The imputed QC __SNP data__ (no LD pruning, the MHC regions are included) were used. The data includes __3'957'338 SNPs__.
+
+All meQTLs passed the significance threshold of FDR = 0.05. 
+
+LD clumping was done per CpG using the following parameters:
+
+  --clump-p1 = 0.05:           Significance threshold for index SNPs
+   
+  --clump-p2 = 1:              Secondary significance threshold for clumped SNPs
+ 
+  --clump-r2 = 0.2:            LD threshold for clumping
+
+  --clump-kb = 200:            Physical distance threshold for clumping
+
+
+# Results
+
+```{r include = F, eval = T}
+cbPalette <- c("grey", "#0072B2")
+```
+
+```{r, include = F, eval = T}
+out.dir.pre  <- "/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/integrative/matrixEQTL/meqtls/with_missingness/clumped/"
+
+gwas.enrichment.res.dir <- "/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/integrative/matrixEQTL/meqtls/with_missingness/enrichment/snps/"
+
+# gwas.enrichment.res.dir <- "~/bio/code/mpip/dex-stim-human-array/output/data/integrative/matrixEQTL/meqtls/with_missingness/enrichment/snps/"
+
+setwd(out.dir.pre)
+
+meqtl.veh.fn   <- "me-qtl_cis_result_snps_with_na_veh_beta_fdr_005.csv"
+meqtl.delta.fn <- "me-qtl_cis_result_snps_with_na_delta_beta_fdr_005.csv"
+
+col.names <-  c("SNP", "CpG_ID", "beta", "t-stat", "p-value", "fdr")
+
+meqtl.veh.df   <- fread(meqtl.veh.fn, col.names = col.names)
+meqtl.delta.df <- fread(meqtl.delta.fn, col.names = col.names)
+```
+
+```{r, include = F, eval = T}
+meqtl.all.full.df <- rbind(
+                           meqtl.veh.df[, treatment := "baseline"],
+                           meqtl.delta.df[, treatment := "delta"])
+
+meqtl.all.full.df <- meqtl.all.full.df[!is.na(fdr)]
+meqtl.all.full.df[, meQTL_ID := paste(SNP, CpG_ID, sep = "-")]
+```
+
+## meCpGs {.tabset .tabset-fade .tabset-pills}
+
+### CpG Island
+
+#### __Annotation of genomic locations in relation to CpG island__
+
+```{r load-anno-data, include = F, eval = T}
+out.dir.pre  <- "/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/integrative/matrixEQTL/meqtls/with_missingness/annotation/cpgs/"
+setwd(out.dir.pre)
+
+delta.meqtl.cpg.anno.df                    <- fread("meqtls_cpg_annotated_delta.csv", sep = "\t")
+delta.meqtl.cpg.anno.df$Relation_to_Island <- factor(delta.meqtl.cpg.anno.df$Relation_to_Island, 
+                                                     levels = c("N_Shelf", "N_Shore", "Island", "S_Shore", "S_Shelf", "OpenSea"))
+delta.meqtl.cpg.anno.df[["Model"]]         <- as.factor("GR-induced")
+
+
+veh.meqtl.cpg.anno.df                      <- fread("meqtls_cpg_annotated_veh.csv", sep = "\t")
+veh.meqtl.cpg.anno.df$Relation_to_Island   <- factor(veh.meqtl.cpg.anno.df$Relation_to_Island,
+                                                   levels = c("N_Shelf", "N_Shore", "Island", "S_Shore", "S_Shelf", "OpenSea"))
+veh.meqtl.cpg.anno.df[["Model"]]           <- as.factor("baseline")
+```
+
+```{r out.width = "90%", fig.cap = "Distribution of locations of GR-induced meQTL CpGs in different genomic regions based on Illumina EPIC annotation", include = T, eval = T}
+cbPalette <- c("grey", "#0072B2")
+
+plt.axis.size <- 12
+
+cnt.df <- rbind(delta.meqtl.cpg.anno.df, veh.meqtl.cpg.anno.df) %>% 
+  group_by(Model, Relation_to_Island) %>%
+  tally() %>% 
+  mutate(freq = n / sum(n)) %>% 
+  setDT()
+
+anno.cpg.plt <- 
+  ggplot(cnt.df, aes(x = Relation_to_Island, y = freq, color = Model, fill = Model)) + 
+   geom_bar(stat = "identity", position = position_dodge()) +
+   geom_text(data = cnt.df[cnt.df$freq >= 0.004, ],
+            aes(label = scales::percent(freq, accuracy = 0.1)),
+            vjust = -.5,  position = position_dodge(1), size = standard_textsize / 3, 
+            color = "black") +
+  scale_y_continuous(labels = scales::percent) +
+  labs(x = "",
+       y = "", 
+       title = "") +
+  theme(legend.title = element_blank(), 
+        legend.position = c(0.1, 0.9),
+        legend.text = element_text(size = standard_textsize, color = "black"),
+        panel.grid.major = element_blank(),
+        panel.background = element_blank(),
+        axis.title = element_text(size = standard_textsize),
+        axis.ticks = element_blank(),
+        axis.text.x = element_text(angle = 0, size = standard_textsize, color = "black"),
+        axis.text.y = element_blank()) +
+  scale_color_manual(values = alpha(cbPalette, 1)) +
+  scale_fill_manual(values = alpha(cbPalette, 0.25))
+
+anno.cpg.plt
+```
+
+#### __Enrichment of genomic locations in relation to CpG island__
+
+__GR-induced vs Baseline__
+
+```{r}
+out.dir.pre  <- "/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/integrative/matrixEQTL/meqtls/with_missingness/enrichment/cpgs/"
+setwd(out.dir.pre)
+
+gen.loc.enrich.perm.rslt <- fread("meqtl_cpgs_relation_to_island_enrichment_perm.csv")
+
+gen.loc.enrich.perm.rslt$Feature   <- factor(gen.loc.enrich.perm.rslt$Feature ,
+                                                   levels = c("N_Shelf", "N_Shore", "Island", "S_Shore", "S_Shelf", "OpenSea"))
+```
+
+```{r out.width = "90%", fig.cap = "Genomic region enrichment for the GR-induced meCpGs.  The Y-axis denotes the fold enrichment/depletion as compared to baseline meCpGs. Green bars indicate significant enrichment/depletion, grey bars non-significant differences based on permutation Fisher-tests empirical P <= 0.05. ", eval = T, include = T}
+
+gen.loc.enrich.perm.rslt[["is_sign"]] <- ifelse(gen.loc.enrich.perm.rslt$p_val_emp < 0.05, "Significant", "Non-significant")
+
+enrich.cpg.plt <- 
+  ggplot(gen.loc.enrich.perm.rslt, aes(x = Feature, y = or.odds.ratio, fill = is_sign)) + 
+  geom_bar( stat = "identity", position = position_dodge()) +
+  geom_hline(yintercept = 1, color = "red") + 
+  labs(x = "",
+       y = "Odds ratio", 
+       title = "") +
+  theme_custom() +
+  theme(legend.position = c(0.1, 0.9),
+        legend.text = element_text(size = plt.axis.size)) +
+  #       panel.grid.major = element_blank(),
+  #       panel.background = element_blank(),
+  #       plot.title = element_text(size = 8),
+  #       axis.title = element_text(size = plt.axis.size),
+  #       axis.text.x = element_text(angle = 0, hjust = 0.5, size = plt.axis.size),
+  #       axis.text.y = element_text(size = plt.axis.size),
+  #       legend.text = element_text(size = plt.axis.size)) +
+   scale_fill_manual("", values = c( "#999999", "#009E73")) 
+
+enrich.cpg.plt
+```
+
+__GR-induced vs All EPIC__
+
+```{r}
+out.dir.pre  <- "/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/integrative/matrixEQTL/meqtls/with_missingness/enrichment/cpgs/"
+setwd(out.dir.pre)
+
+gen.loc.enrich.perm.rslt <- fread("meqtl_cpgs_relation_to_island_enrichment_perm_delta_vs_all.csv")
+```
+
+```{r out.width = "90%", fig.cap = "Genomic region enrichment for the GR-induced meCpGs.  The Y-axis denotes the fold enrichment/depletion as compared to all QCed EPIC CpGs. Green bars indicate significant enrichment/depletion, grey bars non-significant differences based on permutation Fisher-tests empirical P <= 0.05. ", eval = T, include = T}
+
+gen.loc.enrich.perm.rslt[["is_sign"]] <- ifelse(gen.loc.enrich.perm.rslt$p_val_emp < 0.05, "Significant", "Non-significant")
+
+ggplot(gen.loc.enrich.perm.rslt, aes(x = Feature, y = or.odds.ratio, fill = is_sign)) + 
+  geom_bar( stat = "identity", position = position_dodge()) +
+  geom_hline(yintercept = 1, color = "red") + 
+  labs(x = "",
+       y = "Odds ratio", 
+       title = "") +
+  theme(legend.position = "bottom",
+        panel.grid.major = element_blank(),
+        panel.background = element_blank(),
+        plot.title = element_text(size = 8),
+        axis.title = element_text(size = plt.axis.size),
+        axis.text.x = element_text(angle = 0, hjust = 0.5, size = plt.axis.size),
+        axis.text.y = element_text(size = plt.axis.size),
+        legend.text = element_text(size = plt.axis.size)) +
+   scale_fill_manual("", values = c( "#999999", "#009E73")) 
+```
+
+__Baseline vs All EPIC__
+
+```{r}
+out.dir.pre  <- "/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/integrative/matrixEQTL/meqtls/with_missingness/enrichment/cpgs/"
+setwd(out.dir.pre)
+
+gen.loc.enrich.perm.rslt <- fread("meqtl_cpgs_relation_to_island_enrichment_perm_veh_vs_all.csv")
+```
+
+```{r out.width = "90%", fig.cap = "Genomic region enrichment for the baseline meCpGs.  The Y-axis denotes the fold enrichment/depletion as compared to all QCed EPIC meCpGs. Green bars indicate significant enrichment/depletion, grey bars non-significant differences based on permutation Fisher-tests empirical P <= 0.05. ", eval = T, include = T}
+
+gen.loc.enrich.perm.rslt[["is_sign"]] <- ifelse(gen.loc.enrich.perm.rslt$p_val_emp < 0.05, "Significant", "Non-significant")
+
+ggplot(gen.loc.enrich.perm.rslt, aes(x = Feature, y = or.odds.ratio, fill = is_sign)) + 
+  geom_bar( stat = "identity", position = position_dodge()) +
+  geom_hline(yintercept = 1, color = "red") + 
+  labs(x = "",
+       y = "Odds ratio", 
+       title = "") +
+  theme(legend.position = "bottom",
+        panel.grid.major = element_blank(),
+        panel.background = element_blank(),
+        plot.title = element_text(size = 8),
+        axis.title = element_text(size = plt.axis.size),
+        axis.text.x = element_text(angle = 0, hjust = 0.5, size = plt.axis.size),
+        axis.text.y = element_text(size = plt.axis.size),
+        legend.text = element_text(size = plt.axis.size)) +
+   scale_fill_manual("", values = c( "#999999", "#009E73")) 
+```
+
+### Gene regions
+
+#### __Annotation of genomic locations in relation to nearby genes__
+
+```{r include = F, eval = T}
+out.dir.pre  <- "/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/integrative/matrixEQTL/meqtls/with_missingness/annotation/cpgs/"
+
+delta.meqtl.cpg.anno.rds     <- readRDS(paste0(out.dir.pre, "meqtls_cpg_annotated_withChIPseeker_delta.rds"))
+delta.meqtl.cpg.anno.stat.df <- delta.meqtl.cpg.anno.rds@annoStat
+
+delta.meqtl.cpg.anno.stat.df$Feature   <- factor(delta.meqtl.cpg.anno.stat.df$Feature)
+delta.meqtl.cpg.anno.stat.df$Frequency <- signif(delta.meqtl.cpg.anno.stat.df$Frequency, 2)
+delta.meqtl.cpg.anno.stat.df$Model <- "GR-induced"
+```
+
+```{r include = F, eval = T}
+veh.meqtl.cpg.anno.rds     <- readRDS(paste0(out.dir.pre, "meqtls_cpg_annotated_withChIPseeker_veh.rds"))
+veh.meqtl.cpg.anno.stat.df <- veh.meqtl.cpg.anno.rds@annoStat
+
+veh.meqtl.cpg.anno.stat.df$Feature   <- factor(veh.meqtl.cpg.anno.stat.df$Feature)
+veh.meqtl.cpg.anno.stat.df$Frequency <- signif(veh.meqtl.cpg.anno.stat.df$Frequency, 2)
+veh.meqtl.cpg.anno.stat.df$Model <- "baseline"
+```
+
+```{r}
+cnt.df <- rbind(delta.meqtl.cpg.anno.stat.df, veh.meqtl.cpg.anno.stat.df)
+cnt.df$Feature <- as.factor(cnt.df$Feature)
+levels(cnt.df$Feature ) <- c("1st Exon", "1st Intron", "3' UTR", "5' UTR", "Distal\nIntergenic", "Downstream\n(<=300)", "Other\nExon", "Other\nIntron", "Promoter\n(<=1kb)", "Promoter\n(1-2kb)", "Promoter\n(2-3kb)")
+```
+
+```{r out.width = "90%", fig.cap = "Distribution of locations of GR-induced meQTL CpGs in different gene regions based on Illumina EPIC annotation", include = T, eval = T}
+anno.cpg.gene.plt <- 
+  ggplot(cnt.df, aes(x = Feature, y = Frequency, color = Model, fill = Model)) + 
+   geom_bar(stat = "identity", position = position_dodge()) +
+   geom_text(data = cnt.df[cnt.df$Frequency >= 1, ],
+            aes(label = paste0(Frequency, "%")),
+            vjust = -.5,  position = position_dodge(1), size = standard_textsize / 3, 
+            color = "black") +
+  scale_y_continuous(labels = scales::percent) +
+  labs(x = "",
+       y = "", 
+       title = "") +
+  theme(legend.title = element_blank(), 
+        legend.position = "none",
+        legend.text = element_text(size = standard_textsize, color = "black"),
+        panel.grid.major = element_blank(),
+        panel.background = element_blank(),
+        axis.title = element_text(size = standard_textsize),
+        axis.ticks = element_blank(),
+        axis.text.x = element_text(angle = 0, size = standard_textsize, color = "black"),
+        axis.text.y = element_blank()) +
+  scale_color_manual(values = alpha(cbPalette, 1)) +
+  scale_fill_manual(values = alpha(cbPalette, 0.25))
+
+anno.cpg.gene.plt
+```
+
+#### __Enrichment of genomic locations in relation to nearby genes__
+
+__GR-induced vs Baseline__
+
+```{r}
+out.dir.pre  <- "/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/integrative/matrixEQTL/meqtls/with_missingness/enrichment/cpgs/"
+setwd(out.dir.pre)
+
+gen.loc.enrich.perm.rslt <- fread("meqtl_cpgs_chipseeker_enrichment_perm_delta_vs_veh.csv")
+gen.loc.enrich.perm.rslt$Feature <- as.factor(gen.loc.enrich.perm.rslt$Feature)
+levels(gen.loc.enrich.perm.rslt$Feature ) <- c("1st Exon", "1st Intron", "3' UTR", "5' UTR", "Distal\nIntergenic", "Downstream\n(<=300)", "Other\nExon", "Other\nIntron", "Promoter\n(<=1kb)", "Promoter\n(1-2kb)", "Promoter\n(2-3kb)")
+```
+
+```{r out.width = "90%", fig.cap = "Gene region enrichment for the GR-induced meCpGs.  The Y-axis denotes the fold enrichment/depletion as compared to baseline meCpGs. Green bars indicate significant enrichment/depletion, grey bars non-significant differences based on permutation Fisher-tests empirical P <= 0.05. ", eval = T, include = T}
+
+gen.loc.enrich.perm.rslt[["is_sign"]] <- ifelse(gen.loc.enrich.perm.rslt$p_val_emp < 0.05, "Significant", "Non-significant")
+
+enrich.cpg.gene.plt <-
+  ggplot(gen.loc.enrich.perm.rslt, aes(x = Feature, y = odds.ratio, fill = is_sign)) + 
+  geom_bar( stat = "identity", position = position_dodge()) +
+  geom_hline(yintercept = 1, color = "red") + 
+  labs(x = "",
+       y = "Odds ratio", 
+       title = "") +
+  theme_custom() +
+  theme(legend.position = "none", 
+        legend.text = element_text(size = plt.axis.size)) +
+  #       panel.grid.major = element_blank(),
+  #       panel.background = element_blank(),
+  #       plot.title = element_text(size = 8),
+  #       axis.title = element_text(size = plt.axis.size),
+  #       axis.text.x = element_text(angle = 20, hjust = 0.5, size = plt.axis.size),
+  #       axis.text.y = element_text(size = plt.axis.size),
+  #       legend.text = element_text(size = plt.axis.size)) +
+   scale_fill_manual("", values = c( "#999999", "#009E73")) 
+
+enrich.cpg.gene.plt
+```
+
+__GR-induced vs All EPIC__
+
+```{r}
+out.dir.pre  <- "/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/integrative/matrixEQTL/meqtls/with_missingness/enrichment/cpgs/"
+setwd(out.dir.pre)
+
+gen.loc.enrich.perm.rslt <- fread("meqtl_cpgs_chipseeker_enrichment_perm_delta_vs_all.csv")
+```
+
+```{r out.width = "90%", fig.cap = "Genomic region enrichment for the GR-induced meCpGs.  The Y-axis denotes the fold enrichment/depletion as compared to all QCed EPIC CpGs. Green bars indicate significant enrichment/depletion, grey bars non-significant differences based on permutation Fisher-tests empirical P <= 0.05. ", eval = T, include = T}
+
+gen.loc.enrich.perm.rslt[["is_sign"]] <- ifelse(gen.loc.enrich.perm.rslt$p_val_emp < 0.05, "Significant", "Non-significant")
+
+ggplot(gen.loc.enrich.perm.rslt, aes(x = Feature, y = odds.ratio, fill = is_sign)) + 
+  geom_bar( stat = "identity", position = position_dodge()) +
+  geom_hline(yintercept = 1, color = "red") + 
+  labs(x = "",
+       y = "Odds ratio", 
+       title = "") +
+  theme(legend.position = "bottom",
+        panel.grid.major = element_blank(),
+        panel.background = element_blank(),
+        plot.title = element_text(size = 8),
+        axis.title = element_text(size = plt.axis.size),
+        axis.text.x = element_text(angle = 20, hjust = 0.5, size = plt.axis.size),
+        axis.text.y = element_text(size = plt.axis.size),
+        legend.text = element_text(size = plt.axis.size)) +
+   scale_fill_manual("", values = c( "#999999", "#009E73")) 
+```
+
+__Baseline vs All EPIC__
+
+```{r}
+out.dir.pre  <- "/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/integrative/matrixEQTL/meqtls/with_missingness/enrichment/cpgs/"
+setwd(out.dir.pre)
+
+gen.loc.enrich.perm.rslt <- fread("meqtl_cpgs_chipseeker_enrichment_perm_veh_vs_all.csv")
+```
+
+```{r out.width = "90%", fig.cap = "Genomic region enrichment for the baseline meCpGs.  The Y-axis denotes the fold enrichment/depletion as compared to all QCed EPIC CpGs. Green bars indicate significant enrichment/depletion, grey bars non-significant differences based on permutation Fisher-tests empirical P <= 0.05. ", eval = T, include = T}
+
+gen.loc.enrich.perm.rslt[["is_sign"]] <- ifelse(gen.loc.enrich.perm.rslt$p_val_emp < 0.05, "Significant", "Non-significant")
+
+ggplot(gen.loc.enrich.perm.rslt, aes(x = Feature, y = odds.ratio, fill = is_sign)) + 
+  geom_bar( stat = "identity", position = position_dodge()) +
+  geom_hline(yintercept = 1, color = "red") + 
+  labs(x = "",
+       y = "Odds ratio", 
+       title = "") +
+  theme(legend.position = "bottom",
+        panel.grid.major = element_blank(),
+        panel.background = element_blank(),
+        plot.title = element_text(size = 8),
+        axis.title = element_text(size = plt.axis.size),
+        axis.text.x = element_text(angle = 20, hjust = 0.5, size = plt.axis.size),
+        axis.text.y = element_text(size = plt.axis.size),
+        legend.text = element_text(size = plt.axis.size)) +
+   scale_fill_manual("", values = c( "#999999", "#009E73")) 
+```
+
+
+```{r include = F}
+nested <- (anno.cpg.plt|anno.cpg.gene.plt|enrich.cpg.plt|enrich.cpg.gene.plt) +
+  patchwork::plot_annotation(tag_levels = 'A') +
+  plot_layout(nrow = 2, ncol = 2,
+              height = standard_height_mm + 20,
+              widths = unit(c(standard_width_mm_double + 20, standard_width_mm_double + 20, standard_width_mm_double + 20, standard_width_mm_double + 20), 
+                            c('mm', 'mm', 'mm', 'mm')))
+
+ggsave("~/mpip/projects/dex-stim-human-array/output/plots/manuscript/m2_f8_meqtl_anno_enrichment.pdf",
+       nested, width = standard_width_mm_double * 2.5, height = standard_height_mm *2.5, units = "mm", dpi = 600, scale = 1)
+```
+
+## meSNP
+
+```{r include = F}
+# snp.anno.dir            <- "~/bio/code/mpip/dex-stim-human-array/output/data/integrative/matrixEQTL/meqtls/with_missingness/annotation/snps/"
+snp.anno.dir             <- "/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/integrative/matrixEQTL/meqtls/with_missingness/annotation/snps/"
+delta.meqtl.snp.anno.rds <- readRDS(paste0(snp.anno.dir, "meqtls_snp_annotated_withChIPseeker_delta.rds"))
+```
+
+### GWAS Enrichment
+
+```{r eval = T, include = F}
+gwas.enrichment.res.dir <- "/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/integrative/matrixEQTL/meqtls/with_missingness/enrichment/snps/"
+
+gwas.enrich.perm.rslt <- read.csv2(paste0(gwas.enrichment.res.dir, "meqtl_snps_GWAS_enrichment_perm_1000.csv"))
+
+gwas.enrich.perm.rslt$odds.ratio <- as.numeric(gwas.enrich.perm.rslt$odds.ratio)
+gwas.enrich.perm.rslt$p_val      <- as.numeric(gwas.enrich.perm.rslt$p_val)
+gwas.enrich.perm.rslt$p_val_emp  <- as.numeric(gwas.enrich.perm.rslt$p_val_emp)
+gwas.enrich.perm.rslt$data       <- c("CD", "ADHD", "ASD", "BP", "MDD", "IBD", "BMI", "SCZ", "PD")
+gwas.enrich.perm.rslt$data       <- factor(gwas.enrich.perm.rslt$data)
+```
+
+```{r out.width = "90%", fig.cap = "Enrichment for nominal and genome-wide significant GWAS associations for the delta meSNPs for CrossDisorder GWAS. The Y-axis denotes the fold enrichment with regard to baseline meSNPs. Green bars indicate significant enrichment/depletion, grey bars non-significant differences based on permutation Fisher-tests empirical P <= 0.05.", eval = T, include = T}
+
+gwas.enrich.perm.rslt["is_sign"] <- ifelse(gwas.enrich.perm.rslt$p_val_emp < 0.05, "Significant", "Non-significant")
+
+gwas.enrich.plt <- ggplot(gwas.enrich.perm.rslt, aes(x = data, y = odds.ratio, fill = is_sign)) + 
+  geom_bar( stat = "identity", position = position_dodge()) +
+  geom_hline(yintercept = 1, color = "red") + 
+  labs(x = "",
+       y = "Odds ratio", 
+       title = "") +
+  theme(legend.position = "bottom",
+        legend.text = element_text(size = 14, colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.background = element_blank(),
+        plot.title = element_text(size = 8),
+        axis.title = element_text(size = 12),
+        axis.text.x = element_text(size = 12, angle = 0, colour = "black"),
+        axis.text.y = element_text(size = 12, angle = 0, colour = "black")) +
+   scale_fill_manual("", values = c( "#999999", "#009E73")) 
+
+gwas.enrich.plt
+```
+
+```{r out.width = "90%", fig.cap = "Enrichment of the delta meSNPs for different GWAS. The Y-axis denotes the proportion of overlaps between meSNPs and GWAS SNPs.", eval = T, include = T}
+
+gwas.enrich.perm.rslt["prop"] <-  signif(gwas.enrich.perm.rslt$n_snps_overlap / delta.meqtl.snp.anno.rds@peakNum * 100, 2)
+
+gwas.enrich.perm.rslt$odds.ratio <- as.numeric(gwas.enrich.perm.rslt$odds.ratio)
+gwas.enrich.perm.rslt$p_val      <- as.numeric(gwas.enrich.perm.rslt$p_val)
+gwas.enrich.perm.rslt$p_val_emp  <- as.numeric(gwas.enrich.perm.rslt$p_val_emp)
+gwas.enrich.perm.rslt$data       <- c("CD", "ADHD", "ASD", "BP", "MDD", "IBD", "BMI", "SCZ", "PD")
+gwas.enrich.perm.rslt$data       <- factor(gwas.enrich.perm.rslt$data)
+
+gwas.olap.plt <- ggplot(gwas.enrich.perm.rslt, aes(x = data, y = prop)) + 
+  geom_bar( stat = "identity", position = position_dodge()) +
+# geom_text(aes(label = paste0(n_snps_overlap, "\n(", prop, "%)")), position = position_dodge(width = 0.9), vjust = -0.25, cex = 3) + 
+  geom_text(aes(label = n_snps_overlap), position = position_dodge(width = 0.9), vjust = -0.25, cex = 4) + 
+  labs(x = "",
+       y = "Overlaps, %", 
+       title = "") +
+  theme(legend.position = "bottom",
+        panel.grid.major = element_blank(),
+        panel.background = element_blank(),
+        plot.title = element_text(size = 8),
+        axis.title = element_text(size = 12),
+        axis.text.x = element_text(size = 12, angle = 0, colour = "black"),
+        axis.text.y = element_text(size = 13, angle = 0, colour = "black")) +
+   scale_fill_manual("", values = c( "#009E73")) 
+
+gwas.olap.plt
+```
+
+```{r include = F}
+nested <- (gwas.enrich.plt|gwas.olap.plt) +
+  patchwork::plot_annotation(tag_levels = 'A') +
+  plot_layout(nrow = 1, ncol = 2,
+               height = unit(c(standard_height_mm - 20), c('mm')),
+             # height = unit(c(standard_height_mm, standard_height_mm ), c('mm', 'mm')),
+              widths = unit(c(standard_width_mm_single * 1.6, standard_width_mm_single * 1.6 ), c('mm', 'mm')))
+
+ggsave("~/mpip/projects/dex-stim-human-array/output/plots/manuscript/m5_f1_gwas_enrich_plt.pdf",
+       nested, width = standard_width_mm_double * 1.8, height = standard_height_mm * 1.2, units = "mm", dpi = 600, scale = 1)
+```
+

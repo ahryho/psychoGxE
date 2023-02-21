@@ -1,0 +1,560 @@
+---
+title: "cis-meQTLs analysis: Genotype with missingness. LD clumped results"
+subtitle: "Dexamethasone-Stimulated Human Array Project"
+author: 
+  - name: Anastasiia Hryhorzhevska
+    email: anastasiia_hry@psych.mpg.de
+    url: https://github.com/ahryho
+    affiliation: Max Planck Institute of Psychiatry
+    affiliation_url: https://www.psych.mpg.de/2664393/medizinische-genomforschung
+date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    df_print: paged
+    css: ../../../style.css
+    code_folding: hide
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r, include=FALSE}
+options(digits = 4, width = 100, stringsAsFactors = T)
+knitr::opts_chunk$set(echo = TRUE,
+                      tidy.opts = list(width.cutoff = 100),
+                      tidy=TRUE,
+                      fig.pos = "H",
+                      dpi = 200,
+                      warning = FALSE, 
+                      message = FALSE, 
+                      cache = TRUE, 
+                      cache.lazy = FALSE)
+
+# define DT as the standard printing method for data.frame
+library(knitr)
+library(DT)
+knit_print.data.frame <- function(x, ...) {
+  knit_print(DT::datatable(x,
+                           filter="top",
+                           rownames = FALSE,
+                           extensions = "FixedColumns",
+                           options = list(
+                             scrollX = TRUE,
+                             pageLength = 5
+                             
+                           )), ...)
+}
+
+registerS3method("knit_print", "data.frame", knit_print.data.frame)
+
+library(data.table)
+library(arrow)
+library(dplyr)
+
+library(patchwork)
+library(ggplot2)
+library(ggrepel)
+library(scales)
+library(GGally)
+library(viridis)
+library(eulerr)
+
+library(here)
+
+library(mltools)
+library(ggrepel)
+```
+
+```{r include = F, eval = T}
+source("~/mpip/projects/dex-stim-human-array/code/integrative/util.R")
+```
+
+# Introduction
+
+This markdown provides comparison between two meQTL analysis after LD clumping. meQTL analysis were done using the R package _MatrixEQTL_. LD clumping was done using PLINK
+
+For all analysis, the same DNAm data were used which underwent following QC steps: 
+
+![DNAm QC](../../../data_overview/img/dnam_qc_roadmap.pdf){width=95%}
+
+The imputed QC __SNP data__ (no LD pruning, the MHC regions are included) were used. The data includes __3'957'338 SNPs__.
+
+All meQTLs passed the significance threshold of FDR = 0.05. 
+
+LD clumping was done per CpG using the following parameters:
+
+  --clump-p1 = 0.05:           Significance threshold for index SNPs
+   
+  --clump-p2 = 1:              Secondary significance threshold for clumped SNPs
+ 
+  --clump-r2 = 0.2:            LD threshold for clumping
+
+  --clump-kb = 200:            Physical distance threshold for clumping
+
+
+# Results
+
+```{r plot-param, include = F, eval = T}
+cbPalette <- c("grey", "#0072B2")
+standard_textsize <- 12
+standard_dpi_fig  <- 600
+standard_width_mm_single <- 90
+standard_width_mm_double <- 180
+standard_height_mm <- 100
+```
+
+```{r, include = F, eval = T}
+out.dir.pre  <- "/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/integrative/matrixEQTL/meqtls/with_missingness/clumped/"
+setwd(out.dir.pre)
+
+meqtl.veh.fn   <- "me-qtl_cis_result_snps_with_na_veh_beta_fdr_005.csv"
+meqtl.delta.fn <- "me-qtl_cis_result_snps_with_na_delta_beta_fdr_005.csv"
+
+col.names <-  c("SNP", "CpG_ID", "beta", "t-stat", "p-value", "fdr")
+
+meqtl.veh.df   <- fread(meqtl.veh.fn, col.names = col.names)
+meqtl.delta.df <- fread(meqtl.delta.fn, col.names = col.names)
+```
+
+```{r, include = F, eval = T}
+meqtl.all.full.df <- rbind(
+                           meqtl.veh.df[, treatment := "baseline"],
+                           meqtl.delta.df[, treatment := "delta"])
+
+meqtl.all.full.df <- meqtl.all.full.df[!is.na(fdr)]
+meqtl.all.full.df[, meQTL_ID := paste(SNP, CpG_ID, sep = "-")]
+```
+
+## Significant Hits, FDR < 0.05
+
+```{r, include = F, eval = T}
+sign.hits.df <- data.table(c(meqtl.all.full.df[treatment == "delta", meQTL_ID]  %>%  length(), 
+                             meqtl.delta.df$CpG_ID %>% unique() %>% length(),
+                             meqtl.delta.df$SNP %>% unique() %>% length()),
+                           c(meqtl.all.full.df[treatment == "baseline", meQTL_ID]  %>%  length(), 
+                             meqtl.veh.df$CpG_ID %>% unique() %>% length(),
+                             meqtl.veh.df$SNP %>% unique() %>% length()))
+
+sign.hits.df <- as.data.frame(sign.hits.df)
+rownames(sign.hits.df) <- c("cis-meQTLs", "CpG", "SNP")
+colnames(sign.hits.df) <- c("delta", "baseline")
+```
+
+```{r out.width = "95%", include = F, eval = T}
+x <- sign.hits.df %>% as.matrix() %>% 
+  reshape2::melt(var.names = c("ID", "treatment"), value.name = "cnt") %>% setDT()
+x[Var2 %in% c("veh", "base"), Var2 := "baseline"]
+x[Var2 %in% c("delta", "delta GR-induced"), Var2 := "GR-induced"]
+```
+
+```{r}
+venn.plt <- ggplot(x, aes(y = cnt, x = Var2, fill = as.factor(as.numeric(Var2)))) +
+  geom_col() +
+  geom_text(aes(label = comma(cnt, accuracy = 1L), y = cnt), 
+                stat = "identity", 
+                vjust = -0.2, size = standard_textsize / 3) + 
+  # scale_y_continuous(labels = scientific) +
+  labs(title = " ", y = "Count", x = " ") + 
+  facet_wrap(~ Var1, ncol = 3) +
+  theme_custom() +
+  theme(legend.position = "none", 
+        axis.text.y = element_blank(),
+        plot.title = element_blank(),
+        strip.text.x = element_text(size = standard_textsize, colour = "black", angle = 0)) +
+  scale_fill_manual(values = cbPalette[c(1, 2)])
+
+ggsave("~/mpip/projects/dex-stim-human-array/output/plots/manuscript/m2_f1_meql_venn_plt.pdf",
+       venn.plt, width = standard_width_mm_double / 1.5, height = 60, units = "mm", dpi = 600, scale = 2)
+
+venn.plt
+```
+
+## Scatter plot
+
+```{r out.width = "95%", include = T, eval = T}
+fdr.thr <- 0.05
+# plot.title <- paste0("Significant at FDR <= ", fdr.thr, " meQTLs.",
+#                      "\nResult of MatrixEQTL")
+plot.title <- ""
+scatter.plt <- GetScatterPlot2(meqtl.all.full.df, plot.title = plot.title, cbPalette = cbPalette)
+
+ggsave("~/mpip/projects/dex-stim-human-array/output/plots/manuscript/m2_f2_meql_scatter_plt.pdf",
+       scatter.plt, width = standard_width_mm_double / 1.5, height = 60, units = "mm", dpi = 600, scale = 2)
+
+scatter.plt
+```
+
+```{r}
+nested <- (venn.plt|scatter.plt) +
+  patchwork::plot_annotation(tag_levels = 'A') +
+  plot_layout(width = unit(c(standard_width_mm_double, standard_width_mm_double), c('mm', 'mm')))
+
+ggsave("~/mpip/projects/dex-stim-human-array/output/plots/manuscript/m2_f1_venn_and_scatter_plots.png",
+       nested, width = standard_width_mm_double, height = 60, units = "mm", dpi = 600, scale = 2.15)
+```
+
+## Manhattan plot {.tabset .tabset-fade .tabset-pills}
+
+```{r include = F}
+anno.chipseeker.fn <- "/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/data/annotation/cpg_annotated_withChIPseeker_all.rds"
+anno.chipseeker    <- readRDS(anno.chipseeker.fn)
+
+anno.chipseeker.df <- as.data.frame(as.GRanges(anno.chipseeker))
+```
+
+```{r}
+# Load genomic locations
+
+cpg.loc <- fread("/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/data/integrative/matrixEQTL/cpg_locations.csv", select = c("CpG_ID", "chr", "pos"))
+
+meqtl.delta.notclumped.fn  <- "/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/integrative/matrixEQTL/meqtls/with_missingness/me-qtl_cis_result_snps_with_na_delta_beta_fdr_005.csv"
+meqtl.delta.notclumped.df <- fread(meqtl.delta.notclumped.fn, col.names = col.names)
+
+meqtl.loc.df <- left_join(meqtl.delta.notclumped.df, cpg.loc) %>% 
+  left_join(anno.chipseeker.df[, c("CpG_ID", "SYMBOL")]) %>% 
+  mutate(UCSC_RefGene_Name = SYMBOL, PROBE_ID = CpG_ID, FDR = fdr)
+```
+
+### Delta-GR 
+
+```{r out.width = "95%", include = T, eval = T}
+mhn.plt <- GetManhattanPlot(meqtl.loc.df, is.anno = F)
+ggsave("~/mpip/projects/dex-stim-human-array/output/plots/manuscript/m2_f3_Manhattan_plot_for_meqtl.pdf",
+       mhn.plt, width = standard_width_mm_double / 1.5, height = 60, units = "mm", dpi = 600, scale = 2.5)
+mhn.plt
+```
+
+## Examples
+
+```{r, include = F, eval = T}
+snp.df              <- LoadGenotype() %>% setDT()
+methyl.beta.dex.df  <- LoadMethylBeta(treatment = "dex") %>% setDT()
+methyl.beta.veh.df  <- LoadMethylBeta(treatment = "veh") %>% setDT()
+
+all(colnames(snp.df)[-1] == colnames(methyl.beta.dex.df)[-1])
+all(colnames(snp.df)[-1] == colnames(methyl.beta.veh.df)[-1])
+```
+
+### The meQTL effect observed only post-dexamethasone 
+
+```{r include = T, eval = T}
+# paste0("Scatter plot for the independent significant at FDR <= ", fdr.thr, " meQTLs")
+intersect.cpgs <- intersect(meqtl.all.full.df[treatment == "delta", CpG_ID], meqtl.all.full.df[treatment == "baseline", CpG_ID])
+meqtl.id       <- meqtl.all.full.df[treatment == "delta"][!(CpG_ID %in% intersect.cpgs)][fdr == min(fdr), meQTL_ID]
+selected.meqtl <- meqtl.all.full.df[meQTL_ID %in% meqtl.id] # beta == max(beta)
+
+kable(selected.meqtl %>% 
+        dplyr::select(SNP, CpG_ID, FC = beta, `t-stat`, `p-value`, FDR = fdr, Treatment = treatment) %>% 
+        mutate_if(is.numeric, funs(as.character(signif(., 3)))))
+```
+```{r, eval = T, include = F}
+plot.title <- paste0(# "Independent meQTL ", selected.meqtl$meQTL_ID, 
+                     "GR-response meQTLs located on chromosome ", cpg.loc[CpG_ID == selected.meqtl[1]$CpG_ID, chr],": ",
+                     "FC = ", signif(selected.meqtl$beta, 2), " and FDR = ", signif(selected.meqtl$fdr, 2))
+```
+```{r out.width = "95%", include = F, eval = F}
+GetScatterPlot(meqtl.all.full.df, selected.meqtl, fdr.thr = 0.05,
+               plot.title = plot.title)
+```
+```{r out.width = "95%", include = T, eval = T}
+plot.title <- ""
+box.plt.a <- ProcessGetBoxPlot(methyl.beta.veh.df, methyl.beta.dex.df, snp.df, selected.meqtl[1], fdr.thr = 0.05, 
+                               plot.title = plot.title)
+box.plt.a
+```
+
+### The most signififcant GR-response meQTL
+
+```{r include = T, eval = T}
+meqtl.id       <- meqtl.all.full.df[treatment == "delta"][fdr == min(fdr), meQTL_ID]
+selected.meqtl <- meqtl.all.full.df[meQTL_ID %in% meqtl.id] # beta == max(beta)
+
+kable(selected.meqtl %>% 
+        dplyr::select(SNP, CpG_ID, FC = beta, `t-stat`, `p-value`, FDR = fdr, Treatment = treatment) %>% 
+        mutate_if(is.numeric, funs(as.character(signif(., 3)))))
+```
+```{r, eval = T, include = F}
+plot.title <- paste0(# "Independent meQTL ", selected.meqtl$meQTL_ID, 
+                     "GR-response meQTLs located on chromosome ", cpg.loc[CpG_ID == selected.meqtl[1]$CpG_ID, chr],": ",
+                     "FC = ", signif(selected.meqtl$beta, 2), " and FDR = ", signif(selected.meqtl$fdr, 2))
+```
+```{r out.width = "95%", include = F, eval = F}
+GetScatterPlot(meqtl.all.full.df, selected.meqtl, fdr.thr = 0.05,
+               plot.title = plot.title)
+```
+```{r out.width = "95%", include = T, eval = T}
+plot.title <- ""
+box.plt.b <- ProcessGetBoxPlot(methyl.beta.veh.df, methyl.beta.dex.df, snp.df, selected.meqtl[1], fdr.thr = 0.05, 
+                  plot.title = plot.title)
+box.plt.b
+```
+
+```{r}
+nested <- (mhn.plt/(box.plt.a|box.plt.b)) +
+  patchwork::plot_annotation(tag_levels = 'A') +
+  plot_layout(heights = unit(c(60, 60), c('mm', 'mm')))
+
+ggsave("~/mpip/projects/dex-stim-human-array/output/plots/manuscript/m2_f2_mnh_and_meqtl_examples_boxplots.pdf",
+       nested, width = standard_width_mm_double / 1.5, height = standard_height_mm, units = "mm", dpi = 600, scale = 2)
+```
+
+```{r}
+nested <- ((venn.plt|scatter.plt)/mhn.plt/(box.plt.a|box.plt.b)) +
+  patchwork::plot_annotation(tag_levels = 'A') +
+  plot_layout(heights = unit(c(80, 75, 90), c('mm', 'mm', 'mm')))
+
+ggsave("~/mpip/projects/dex-stim-human-array/output/plots/manuscript/m2_f1_venn_scatter_mnh_and_meqtl_examples_boxplots.png",
+       nested, width = standard_width_mm_double / 1.5, height = standard_height_mm * 1.35, units = "mm", dpi = 600, scale = 2.7)
+```
+
+## Overlap between baseline and delta GR {.tabset .tabset-fade .tabset-pills}
+
+### meQTL level
+  
+```{r out.width = "95%", include = F, eval = T}
+meqtls.meqtls <- list(delta = meqtl.all.full.df[treatment == "delta", meQTL_ID], 
+                      veh = meqtl.all.full.df[treatment == "baseline", meQTL_ID])
+```
+
+```{r out.width = "95%", include = T, eval = T}
+euler.tbl <- euler(meqtls.meqtls)
+
+# For visualisation purposes:
+euler.tbl$ellipses["delta", c("a", "b")] <- euler.tbl$ellipses["delta", c("a", "b")] * 4
+
+meqtl.plt <- plot(euler.tbl,
+     quantities = list(type = c("counts")),
+     fills = alpha(cbPalette[c(2, 1)], 0.25),
+     col = alpha(cbPalette[c(2, 1)], 1),
+     labels =  c("GR-response", "Baseline"))
+
+meqtl.plt <- ggplotify::as.ggplot(meqtl.plt) + ggtitle("meQTL")
+meqtl.plt
+```
+
+### SNP level
+  
+```{r out.width = "95%", include = F, eval = T}
+meqtls.snps <- list(delta = meqtl.all.full.df[treatment == "delta", SNP] %>% unique(), 
+                      veh = meqtl.all.full.df[treatment == "baseline", SNP] %>% unique())
+```
+
+```{r out.width = "95%", include = T, eval = T}
+euler.tbl <- euler(meqtls.snps)
+
+# For visualisation purposes:
+euler.tbl$ellipses["delta", c("a", "b")] <- euler.tbl$ellipses["delta", c("a", "b")] * 4
+
+mesnp.plt <- plot(euler.tbl,
+     quantities = list(type = c("counts")),
+     fills = alpha(cbPalette[c(2, 1)], 0.25),
+     col = alpha(cbPalette[c(2, 1)], 1),
+     labels =  c("GR-response", "Baseline"))
+
+mesnp.plt <- ggplotify::as.ggplot(mesnp.plt) + ggtitle("meSNP")
+mesnp.plt
+```
+
+### CpG level
+
+```{r out.width = "95%", include = F, eval = T}
+meqtls.cpgs <- list(delta = meqtl.all.full.df[treatment == "delta", CpG_ID] %>% unique(), 
+                      veh = meqtl.all.full.df[treatment == "baseline", CpG_ID] %>% unique())
+```
+
+```{r out.width = "95%", include = T, eval = T}
+euler.tbl <- euler(meqtls.cpgs)
+
+# For visualisation purposes:
+euler.tbl$ellipses["delta", c("a", "b")] <- euler.tbl$ellipses["delta", c("a", "b")] * 4
+
+mecpg.plt <- plot(euler.tbl,
+     quantities = list(type = c("counts")),
+     fills = alpha(cbPalette[c(2, 1)], 0.25),
+     col = alpha(cbPalette[c(2, 1)], 1),
+     labels =  c("GR-response", "Baseline")) 
+
+mecpg.plt <- ggplotify::as.ggplot(mecpg.plt) + ggtitle("meCpG")
+mecpg.plt
+```
+
+```{r}
+nested <- (meqtl.plt|mesnp.plt|mecpg.plt) +
+  patchwork::plot_annotation(tag_levels = 'A') +
+  plot_layout(height = 60,
+              widths = unit(c(100, 100, 100), c('mm', 'mm', 'mm')))
+
+ggsave("~/mpip/projects/dex-stim-human-array/output/plots/manuscript/m2_f5_meqtl_olap_plots.pdf",
+       nested, width = standard_width_mm_double + 30, height = 60, units = "mm", dpi = 600, scale = 1.5)
+```
+
+
+## Distances SNP to CpG {.tabset .tabset-fade .tabset-pills}
+
+### GR-response
+
+```{r out.width = "100%", include = F, eval = T}
+snp.loc <- fread("/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/data/integrative/matrixEQTL/snp_locations.csv", select = c("SNP", "chr", "pos"))
+colnames(snp.loc) <- c("SNP", "chr", "pos_snp")
+```
+
+```{r out.width = "100%", include = F, eval = T}
+meqtl.delta.dist.df <- left_join(meqtl.delta.df, cpg.loc)
+colnames(meqtl.delta.dist.df)[ncol(meqtl.delta.dist.df)] <- "pos_cpg"
+meqtl.delta.dist.df <- left_join(meqtl.delta.dist.df, snp.loc)
+colnames(meqtl.delta.dist.df)[ncol(meqtl.delta.dist.df)] <- "pos_snp"
+meqtl.delta.dist.df[["dist"]] <- meqtl.delta.dist.df$pos_snp - meqtl.delta.dist.df$pos_cpg
+meqtl.delta.dist.df[["abs_dist"]] <- abs(meqtl.delta.dist.df$dist)
+
+fdr.thr <- 0.05
+
+avg.dist <- median(meqtl.delta.dist.df$abs_dist)
+
+breaks <- seq(-1e6, 1e6, by = 2.5e5)
+labels <- scales::label_number_si(accuracy = 1)(breaks)
+
+bins <- cut(meqtl.delta.dist.df$dist, 
+            breaks = breaks,
+            labels = labels[labels != 0])
+
+bins.df <- data.frame(DistanceInterval = bins)
+```
+
+```{r include = T, eval = T}
+dex.dist.plt <- 
+  ggplot(bins.df, aes(DistanceInterval)) + 
+  geom_bar(position = "identity", fill = cbPalette[2], colour = cbPalette[2], alpha = 0.25) +
+  stat_count(geom = "text", 
+             aes(label = comma(..count.., accuracy = 1L)),
+             position = position_dodge(1),  vjust = -1, colour = "black", cex = 4) +
+  theme_custom() +
+  theme(axis.text.x = element_text(angle = 0, vjust = 1.2, size = 12, color = "black")) +
+  labs(# title = paste0("Distribution of GR-response cis-meQTLs, FDR = ", fdr.thr), 
+       x = "Distance Interval", 
+       y = "Nunmber of cis-meQTLs") + 
+  scale_color_manual(values = cbPalette[2])
+
+dex.dist.plt
+```
+
+<!-- #  annotate(geom = "text", x = 5,  y = 700, label = paste0("Median of distances between \nCpG and SNP: ", avg.dist, " bp"), # color = "red", size = 12, fontface = "bold")  -->
+
+### Baseline
+
+```{r out.width = "100%", include = F, eval = T}
+meqtl.veh.dist.df <- left_join(meqtl.veh.df, cpg.loc)
+colnames(meqtl.veh.dist.df)[ncol(meqtl.veh.dist.df)] <- "pos_cpg"
+meqtl.veh.dist.df <- left_join(meqtl.veh.dist.df, snp.loc)
+colnames(meqtl.veh.dist.df)[ncol(meqtl.veh.dist.df)] <- "pos_snp"
+meqtl.veh.dist.df[["dist"]] <- meqtl.veh.dist.df$pos_snp - meqtl.veh.dist.df$pos_cpg
+meqtl.veh.dist.df[["abs_dist"]] <- abs(meqtl.veh.dist.df$dist)
+
+fdr.thr <- 0.05
+
+avg.dist <- median(meqtl.veh.dist.df$abs_dist)
+
+breaks <- seq(-1e6, 1e6, by = 2e5)
+labels <- scales::label_number_si(accuracy = 1)(breaks)
+
+bins <- cut(meqtl.veh.dist.df$dist, 
+            breaks = breaks,
+            labels = labels[labels != 0])
+
+bins.df <- data.frame(DistanceInterval = bins)
+```
+
+```{r include = T, eval = T}
+veh.dist.plt <- 
+  ggplot(bins.df, aes(DistanceInterval)) + 
+  geom_bar(position = "identity", fill = cbPalette[1], colour = cbPalette[1], alpha = 0.25) +
+  stat_count(geom = "text", 
+             aes(label = comma(..count.., accuracy = 1L)),
+             position = position_dodge(1),  vjust = -1, colour = "black", cex = 4) +
+  scale_y_continuous(labels = function(x) format(x, scientific = TRUE)) +
+  theme_custom() +
+  theme(axis.text.x = element_text(angle = 0, vjust = 1.2, size = 12, color = "black")) +
+  labs(# title = paste0("Distribution of baseline cis-meQTLs, FDR = ", fdr.thr), 
+       x = "Distance Interval", 
+       y = "Nunmber of cis-meQTLs") + 
+  scale_color_manual(values = cbPalette[1])
+
+veh.dist.plt
+```
+
+```{r}
+nested <- (dex.dist.plt|veh.dist.plt) +
+  patchwork::plot_annotation(tag_levels = 'A') +
+  plot_layout(height = standard_height_mm,
+              widths = unit(c(standard_width_mm_double, standard_width_mm_double), c('mm', 'mm')))
+
+ggsave("~/mpip/projects/dex-stim-human-array/output/plots/manuscript/m2_f6_meqtl_dist_plots.pdf",
+       nested, width = standard_width_mm_double + 30, height = standard_height_mm, units = "mm", dpi = 600, scale = 2)
+```
+
+## FDR {.tabset .tabset-fade .tabset-pills}
+
+### GR-response
+```{r out.width = "100%", include = T, eval = T}
+dex.fdr.plt <-
+    ggplot(meqtl.delta.dist.df, aes(x = dist, y = -log10(fdr))) + 
+    geom_point(shape = 21, fill = alpha(cbPalette[2], 0.25), colour =  cbPalette[2]) +
+    scale_x_continuous(labels = function(x) format(x, scientific = TRUE)) +
+    theme_custom() + 
+    # theme(axis.line = element_line(linewidth = 0.5, color = "grey")) +
+    labs(# title = "Delta meQTL p-values plotted against distance from the CpG nearest sites in a +/- 1Mb window relative to each CpG site for each delta meQTL SNP.", 
+       x = "Distance from SNP, bp", 
+       y = "-log10 FDR")
+```
+
+### Baseline
+
+```{r out.width = "100%", include = T, eval = T}
+veh.fdr.plt <-
+  ggplot(meqtl.veh.dist.df, aes(x = dist, y = -log10(fdr))) + 
+    geom_point(shape = 21, fill = alpha(cbPalette[1], 0.25), colour =  cbPalette[1]) +
+    scale_x_continuous(labels = function(x) format(x, scientific = TRUE)) +
+    theme_custom() + 
+    labs(# title = "Delta meQTL p-values plotted against distance from the CpG nearest sites in a +/- 1Mb window relative to each CpG site for each delta meQTL SNP.", 
+       x = "Distance from SNP", 
+       y = "-log10 FDR")
+```
+
+## FC {.tabset .tabset-fade .tabset-pills}
+
+### GR-response
+
+```{r out.width = "100%", include = T, eval = T}
+dex.fc.plt <-
+  ggplot(meqtl.delta.dist.df, aes(x = dist, y = beta)) + 
+    geom_point(shape = 21, fill = alpha(cbPalette[2], 0.25), colour =  cbPalette[2]) +
+    scale_x_continuous(labels = function(x) format(x, scientific = TRUE)) +
+    theme_custom() + 
+    labs(# title = "Delta meQTL effect size plotted against distance from the CpG nearest sites in a +/- 1Mb window relative to each CpG site for each delta meQTL SNP.", 
+        x = "Distance from SNP", 
+        y = "Effect size")
+```
+
+### Baseline
+
+```{r out.width = "100%", include = T, eval = T}
+veh.fc.plt <-
+  ggplot(meqtl.veh.dist.df, aes(x = dist, y = beta)) + 
+    geom_point(shape = 21, fill = alpha(cbPalette[1], 0.25), colour =  cbPalette[1]) +
+    scale_x_continuous(labels = function(x) format(x, scientific = TRUE)) +
+    theme_custom() + 
+    labs(# title = "Delta meQTL effect size plotted against distance from the CpG nearest sites in a +/- 1Mb window relative to each CpG site for each delta meQTL SNP.", 
+         x = "Distance from SNP", 
+         y = "Effect size")
+```
+
+```{r}
+# nested <- ((dex.dist.plt|veh.dist.plt)/(dex.fdr.plt|dex.fdr.plt)/(dex.fc.plt|dex.fc.plt)) +
+nested <- ((dex.dist.plt/dex.fdr.plt/dex.fc.plt)|(veh.dist.plt/veh.fdr.plt/veh.fc.plt))+
+  patchwork::plot_annotation(tag_levels = 'A') +
+  plot_layout(height = standard_height_mm,
+              widths = unit(c(standard_width_mm_double, standard_width_mm_double), c('mm', 'mm')))
+
+ggsave("~/mpip/projects/dex-stim-human-array/output/plots/manuscript/m2_f7_meqtl_dist_fdr_fc_plots.png",
+       nested, width = standard_width_mm_double + 30, height = standard_height_mm *3, units = "mm", dpi = 600, scale = 2)
+```

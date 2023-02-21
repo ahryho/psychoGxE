@@ -1,0 +1,263 @@
+---
+title: 'Outcome Selection: IEU GWAS Catalog'
+author: "Nils Kappelmann"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+
+library("knitr")
+library("kableExtra")
+```
+
+# 1: Preparation
+
+Packages for data processing and instrument extraction are loaded:
+```{r}
+library("tidyverse")
+library("stringdist")
+library("TwoSampleMR")
+library("ieugwasr")
+library("MRInstruments")
+```
+
+
+# 2: Exposure Selection
+
+Available outcomes are extracted:
+
+```{r}
+ao <- available_outcomes()
+knitr::kable(head(ao)) %>%
+      kable_styling(font_size = 7) %>%
+      kable_material(c("striped", "hover"))
+```
+
+This includes data on **`r nrow(ao)`** outcomes
+
+
+## 2.1: Batch filtering
+
+Exposures are filtered according to batches indicated on the [https://gwas.mrcieu.ac.uk/datasets/#data-overview](MRC IEU GWAS Website).
+
+A batch variable is created:
+```{r}
+ao$batch = ao$id %>%
+      substr(1, 6)
+```
+
+
+Removals include:
+
+- **`r sum(grepl("bbj-a", ao$id))`** Biobank Japan release of disease traits
+- **`r sum(grepl("finn-a", ao$id))`** FinnGen biobank analysis
+- **`r sum(grepl("eqtl-a", ao$id))`** eQTLGen 2019 results, comprising all cis and some trans regions of gene expression in whole blood
+- **`r sum(grepl("met-a", ao$id))`** Human blood metabolites analysed by Shin et al 2014
+- **`r sum(grepl("met-b", ao$id))`** Human immune system traits analysed by Roederer et al 2015
+- **`r sum(grepl("met-c", ao$id))`** Circulating metabolites analysed by Kettunen et al 2016
+- **`r sum(grepl("met-d", ao$id))`** Metabolic biomarkers in the UK Biobank measured by Nightingale Health 2020
+- **`r sum(grepl("prot-a", ao$id))`** Complete GWAS summary data on protein levels as described by Sun et al 2018
+- **`r sum(grepl("prot-b", ao$id))`** Complete GWAS summary data on protein levels as described by Folkersen et al 2017
+- **`r sum(grepl("prot-c", ao$id))`** Complete GWAS summary data on protein levels as described by Suhre et al 2017
+- **`r sum(grepl("ubm-a", ao$id))`** Complete GWAS summary data on brain region volumes as described by Elliott et al 2018
+- **`r sum(grepl("ukb-e", ao$id))`** Pan-ancestry genetic analysis of the UK Biobank performed at the Broad Institute
+
+
+These are removed now:
+
+```{r}
+ao = ao %>%
+   filter(!grepl("finn-a", id)) %>%
+   filter(!grepl("bbj-a", id)) %>%
+   filter(!grepl("eqtl-a", id)) %>%
+   filter(!grepl("met-a", id)) %>%
+   filter(!grepl("met-b", id)) %>%
+   filter(!grepl("met-c", id)) %>%
+   filter(!grepl("met-d", id)) %>%
+   filter(!grepl("prot-a", id)) %>%
+   filter(!grepl("prot-b", id)) %>%
+   filter(!grepl("prot-c", id)) %>%
+   filter(!grepl("ubm-a", id)) %>%
+   filter(!grepl("ukb-e", id))
+```
+
+Data on **`r nrow(ao)`** outcomes is left in the data frame.
+
+
+These outcomes are summarised by batch in a dataset to assess potential numbers for subsequent removals by ethnicity and batch:
+```{r}
+ao_by_batch = ao %>% 
+   arrange(desc(sample_size)) %>%
+   mutate(european = population == "European",
+          duplicate_single = duplicated(tolower(trait)), 
+          duplicate_both = duplicated(tolower(trait)) | duplicated(tolower(trait), fromLast = TRUE)) %>%
+   group_by(batch) %>%
+   summarise(count = n(),
+             count_european = sum(european),
+             duplicate_single_sum = sum(duplicate_single),
+             duplicate_both_sum = sum(duplicate_both)) %>%
+   mutate(percent_european = round(count_european / count * 100, 1),
+          percent_duplicates = round(duplicate_single_sum / count * 100, 1), 
+          count_after_duplicate_removal = count - duplicate_single_sum,
+          percent_duplicates_single_both = round(duplicate_single_sum / duplicate_both_sum * 100, 1)) 
+
+write.table(ao_by_batch, file = "./Results/Outcomes_By_Batch.csv",col.names = TRUE, row.names = FALSE, 
+            quote = FALSE, sep = ",")
+
+knitr::kable(head(ao_by_batch)) %>%
+      kable_styling(font_size = 9) %>%
+      kable_material(c("striped", "hover"))
+```
+
+
+
+## 2.2: Ethnicity filtering
+
+Since IL-6 and CRP outcome data are focused on ethnicities from European descent, exposure data will be filtered to phenotypes from European populations by removing **`r sum(ao$population != "European")`**:
+```{r}
+ao = ao %>%
+   filter(population == "European")
+```
+
+
+## 2.3: Duplicate filtering
+
+Currently, there are **`r sum(duplicated(tolower(ao$trait)))`** duplicated outcomes in the available outcomes data.
+
+
+These are removed by keeping the exposure with the larger available phenotype:
+```{r}
+ao = ao %>%
+      arrange(desc(sample_size)) %>%
+      filter(!duplicated(tolower(trait)))
+```
+
+This leaves **`r nrow(ao)`** outcomes in the data frame.
+
+Beyond traits forming exact duplicates, duplicates with slightly deviating names (but referring to the same phenotype) are also identified and removed:
+
+
+First, **`r sum(duplicated(gsub(" levels", "", tolower(ao$trait))))`** phenotypes with suffix *levels* are compared to possible duplicates and the phenotype with greater sample size is retained:
+```{r}
+ao = ao %>%
+      arrange(desc(sample_size)) %>%
+      filter(!duplicated(gsub(" levels", "", tolower(trait))))
+```
+
+
+There are also duplicate BMI traits from UK Biobank, so those with smaller sample size are removed:
+```{r}
+ao = ao[ao$id != "ieu-a-85" & ao$id != "ukb-b-19953",]
+```
+
+
+These steps leave **`r nrow(ao)`** outcomes in the data frame.
+
+
+The list of these outcomes is exported to give an overview:
+```{r}
+write.table(arrange(ao, trait), file = "./Data/IEU_List_Traits.csv",
+          sep = ",", col.names = TRUE, row.names = FALSE, quote = TRUE)
+```
+
+
+Next, trait similarity is assessed using the `stringdist` package using the *Optimal string aligment (restricted Damerau-Levenshtein distance)* method with *threshold>0.8* defined as similar strings:
+
+```{r}
+trait_similarity_matrix = stringsimmatrix(ao$trait)
+
+## Check which traits are highly similar:
+has_similar_trait_matrix = trait_similarity_matrix > 0.8
+
+## Check if trait has similar trait
+has_similar_trait = rowSums(has_similar_trait_matrix) > 1
+
+## Save similar traits
+similar_traits = ao[has_similar_trait,] %>%
+   arrange(trait) %>%
+   select(id, trait, sample_size)
+
+write.table(similar_traits, file = "./Data/IEU_List_Similar_Traits.csv",
+          sep = ",", col.names = TRUE, row.names = FALSE, quote = TRUE)
+
+## Free up working environment
+rm(trait_similarity_matrix)
+rm(has_similar_trait_matrix)
+```
+
+This indicates that **`r sum(has_similar_trait)`** phenotypes have phenotypes with similar names in the dataset. These are manually scanned in the external file:
+```{r}
+similar_traits_checked = read.csv(file = "./Data/IEU_List_Similar_Traits_Checked.csv",
+                                  sep = ",", header = TRUE)
+
+knitr::kable(tail(similar_traits_checked)) %>%
+      kable_styling(font_size = 7) %>%
+      kable_material(c("striped", "hover"))
+```
+
+
+In manual scanning, **`r sum(similar_traits_checked[similar_traits_checked$trait %in% ao$trait, "delete"])`** have been identified, which are deleted now:
+```{r}
+ao = ao %>%
+   filter(id %in% similar_traits_checked[similar_traits_checked$delete == 1, "id"] == FALSE)
+```
+
+
+This leaves **`r nrow(ao)`** phenotypes.
+
+
+## 2.4: Other filtering
+
+The UK Biobank phenotypes from the PHESANT pipeline include many phenotypes coding *PCT responsible for patient data: <area>* and *PCT where patients GP was registered: <area>*. These are removed. Specifically, this includes **`r sum(grepl("PCT where patients GP was registered", ao$trait, fixed = TRUE) | grepl("PCT responsible for patient data", ao$trait, fixed = TRUE))`** traits and these are removed:
+```{r}
+ao = ao[!grepl("PCT responsible for patient data", ao$trait, fixed = TRUE) & 
+           !grepl("PCT where patients GP was registered", ao$trait, fixed = TRUE),]
+```
+
+Phenotypes with *Day-of-week questionnaire completion requested* or *Destinations on discharge from hospital (recoded):* are also removed:
+```{r}
+ao = ao[!grepl("Day-of-week questionnaire completion requested", ao$trait, fixed = TRUE) & !grepl("Destinations on discharge from hospital (recoded):", ao$trait, fixed = TRUE),]
+```
+
+Phenotypes with *Main speciality of consultant (recoded)* and *Treatment speciality of consultant (recoded)* are also removed:
+```{r}
+ao = ao[!grepl("Main speciality of consultant (recoded)", ao$trait, fixed = TRUE) & !grepl("Treatment speciality of consultant (recoded)", ao$trait, fixed = TRUE),]
+```
+
+PGC cross-disorder phenotypes are removed in a last step, since data from the more recent GWAS is added manually in the harmonisation step:
+```{r}
+ao = filter(ao, trait != "PGC cross-disorder traits")
+```
+
+
+
+This leaves **`r nrow(ao)`** phenotypes.
+
+
+# 3: Descriptive overview
+
+Overall, the exposure selection procedure retains the following number of phenotypes per batch (cf. with batches on [https://gwas.mrcieu.ac.uk/datasets/#data-overview](MRC IEU GWAS Website)):
+```{r}
+table(ao$batch)
+```
+
+
+# 4 Save data
+
+Data is saved locally:
+```{r}
+save(ao, file = "./Data/IEU_List_Selected_Outcomes.RData")
+```
+
+
+
+# Session Info
+
+```{r}
+sessionInfo()
+```
+
+

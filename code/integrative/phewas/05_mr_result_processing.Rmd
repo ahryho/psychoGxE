@@ -1,0 +1,199 @@
+---
+title: "MR-PheWAS Analysis: MR Results Visualisation"
+subtitle: "Dexamethasone-Stimulated Human Array Project"
+author: 
+  - name: Anastasiia Hryhorzhevska
+    email: anastasiia_hry@psych.mpg.de
+    url: https://github.com/ahryho
+    affiliation: Max Planck Institute of Psychiatry
+    affiliation_url: https://www.psych.mpg.de/2664393/medizinische-genomforschung
+date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_notebook:
+    toc: TRUE
+    toc_float: TRUE
+    df_print: paged
+    css: ../style.css
+    code_folding: hide
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r, include=FALSE}
+options(digits = 4, width = 100, stringsAsFactors = T)
+knitr::opts_chunk$set(echo = TRUE,
+                      tidy.opts = list(width.cutoff = 100),
+                      tidy=TRUE,
+                      fig.pos = "H",
+                      fig.width = 10,
+                      dpi = 1500,
+                      warning = FALSE, 
+                      message = FALSE, 
+                      cache = TRUE, 
+                      cache.lazy = FALSE,
+                      include = T,
+                      eval = T)
+
+# define DT as the standard printing method for data.frame
+library(knitr)
+library(DT)
+knit_print.data.frame <- function(x, ...) {
+  knit_print(DT::datatable(x,
+                           filter="top",
+                           rownames = FALSE,
+                           extensions = "FixedColumns",
+                           options = list(
+                             scrollX = TRUE,
+                             pageLength = 5
+                             
+                           )), ...)
+}
+
+registerS3method("knit_print", "data.frame", knit_print.data.frame)
+```
+
+# 1: Load and prepare data
+
+```{r  include = F}
+library(data.table)
+library(tidyverse)
+library(ggplot2)
+library(ggrepel)
+library(ggpubr)
+library(RColorBrewer)
+
+cbPalette <- c("#0072B2", "#009E73", "#E69F00")
+```
+
+```{r include = F}
+dir.pre         <- "~/bio/code/mpip/dex-stim-human-array/"
+phewas.dir      <- paste0(dir.pre, "data/integrative/phewas/8_cell_type_groups/")
+mr.res.dir      <- paste0(dir.pre, "output/data/integrative/phewas/8_cell_type_groups/")
+```
+
+The selected exposure list is loaded for later visualisation:
+
+```{r}
+# selected exposures list
+ao <- readRDS(paste0(dir.pre, "data/public_data/PheWAS/IEU_List_Selected_Outcomes.rds"))
+```
+
+MR result data is loaded:
+
+```{r}
+mr.res <- readRDS(paste0(mr.res.dir, "mr_results_clumped.rds"))
+```
+
+# 2 Processing
+
+## 2.1 Annotation
+
+Results are annotated in multiple steps.
+
+First, information on traits and batches are merged back from the selected exposures file:
+
+```{r}
+mr.res.ao <- mr.res %>% 
+   left_join(ao[, c("id", "trait", "batch")], by = c("id.outcome" = "id") )
+
+head(mr.res.ao)
+```
+
+Clean extra hyphen from batch data:
+
+```{r}
+mr.res.ao$batch <- substr(mr.res.ao$batch, 1, 5)
+
+head(mr.res.ao)
+```
+
+The exposure.group variable is recoded with proper names:
+
+```{r include = F}
+# mr.res.ao$exposure.group <- paste0(mr.res.ao$exposure.group, " delta SNP-CpG")
+mr.res.ao$exposure.group <- as.factor(mr.res.ao$exposure.group)
+```
+
+The CpG column is created based on the exposure label:
+
+```{r}
+mr.res.ao$cpg <- unlist(strsplit(mr.res.ao$exposure, "_"))[seq(from = 4, to = 4*nrow(mr.res.ao), by = 4)] 
+head(mr.res.ao)
+```
+
+The number of phenotypes analysed per batch is as follows:
+
+```{r}
+mr.res.ao %>%
+   group_by(batch) %>%
+   summarize(n_outcomes = n_distinct(outcome))
+```
+
+Overall, there is no indication that there are more PheWAS hits in any of the exposure groups:
+
+```{r}
+sig.table <- with(mr.res.ao, table(p < 0.05, exposure.group))
+cat("Frequencies:\n")
+sig.table %>% print()
+cat("\nPercentages:\n")
+sig.table %>% prop.table(margin = 2) * 100 %>% print()
+
+chisq.test(sig.table)
+```
+
+Second, FDR-corrected significant results are exported and saved:
+
+```{r}
+mr.res.ao.fdr.sig <- arrange(mr.res.ao[mr.res.ao$fdr < 0.05, 
+                                       c("batch", "trait", "exposure.group", "cpg", "SNP", "outcome", 
+                                         "b", "se", "p", "fdr")], p)
+
+nrow(mr.res.ao.fdr.sig)
+```
+
+Annotate with trait category
+
+```{r}
+anno_df           <- fread(paste0(dir.pre, "data/public_data/PheWAS/trait_anno_table.csv"))
+mr.res.ao.fdr.sig <- left_join(mr.res.ao.fdr.sig, anno_df, by = "trait")
+mr.res.ao.fdr.sig <- mr.res.ao.fdr.sig[, blood_type := sub( ".*base\\s*(.*?)\\s*_", "", exposure.group)]
+mr.res.ao.fdr.sig <- mr.res.ao.fdr.sig[, exposure_super_group := ifelse(exposure.group %like% "no", "dex", "base_dex")]
+
+missing_traits_df <- data.frame(c(mr.res.ao.fdr.sig[is.na(mr.res.ao.fdr.sig$trait_category), "trait"], trait_category = "")) %>% unique()
+
+# Add missing traits for categories and save the file to annotate them manually
+anno_df           <- rbind(anno_df, missing_traits_df)
+fwrite(anno_df,
+       paste0(dir.pre, "data/public_data/PheWAS/trait_anno_table.csv"), 
+       sep = ";", col.names = T)
+```
+
+Save results
+
+```{r}
+fwrite(mr.res.ao.fdr.sig, 
+       paste0(mr.res.dir, "/mr_results_clumped_fdrsign.csv"),
+       quote = F, row.names = F, sep = "\t")
+```
+
+The missing results are annotated manually to group outcome traits. Annotated data are read back in and categories shown in a frequency table:
+
+```{r}
+mr.res.ao.fdr.sig <- fread(paste0(mr.res.dir, "/mr_results_clumped_fdrsign.csv"))
+mr.res.ao.fdr.sig <- mr.res.ao.fdr.sig[trait_category != ""]
+
+sig.table <- with(mr.res.ao.fdr.sig, table(exposure.group, trait_category))
+cat("Frequencies:\n")
+sig.table %>% print()
+cat("\nPercentages:\n")
+sig.table %>% prop.table(margin = 2) * 100 %>% print()
+
+chisq.test(sig.table)
+```
+
+
+# Session Info
+
+```{r}
+sessionInfo()
+```
