@@ -19,7 +19,7 @@ The available multiomics data for the currect project:
 - Genotype
 - Phenotype 
 
-For detailed data overview, please refer to the [data overview](https://github.com/ahryho/psychoGE/blob/master/code/integrative/data_overview/01_data_overview.html)
+For detailed data overview, please refer to the [data overview](https://github.com/ahryho/psychoGE/blob/master/code/integrative/data_overview/01_data_overview.html).
 
 ## Analysis
 
