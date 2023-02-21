@@ -32,11 +32,7 @@ col.names <- c("CpG_ID", "ENSG_ID", "beta", "t-stat", "p-value", "FDR")
 sign.eqtm.df <- read_delim_arrow(paste0(out.dir.pre, "eqtm_cis_result_delta_no_residuals_or_cov_beta.csv"), delim = ";") %>% setDT()
 
 sign.eqtm.df <- sign.eqtm.df[FDR < 0.05]
-
-# sign.eqtm.df <- left_join(sign.eqtm.df, map.df, by = c("ENSG_ID" = "Ensemble_ID")) 
-# sign.eqtm.df <- sign.eqtm.df %>% data.table()
 ```
-
 
 ## Significnat differential transcripts 
 

@@ -61,23 +61,17 @@ source("code/integrative/util.R")
 
 ```{r load-and-prepare-pub-data, eval=F}
 # Load publicly available data from Josine L.Min at el. 2021
-
-# mqtl_data <- fromJSON("http://api.godmc.org.uk/v0.1/assoc_meta/cpg/cg17242362", simplifyVector = FALSE)
- 
 public.meqtl.df <- fread("data/public_data/GoDMC_mQTL/assoc_meta_all.csv", select = c("cpg", "snp", "pval", "beta_a1", "cistrans"))
 public.meqtl.cis.sub.df <- public.meqtl.df[cistrans == T] # 71'616'458
 ```
 
 ```{r load-public-meqtls, eval = T}
 public.meqtl.cis.sub.interest.df <- fread("data/public_data/GoDMC_mQTL/assoc_meta_cis_meqtl.csv")
-  # fread("data/public_data/GoDMC_mQTL/assoc_meta_cis_meqtl_lst.csv")
 ```
 
 ```{r load-veh-meqtls, eval = T}
 col.names    <- c("SNP", "CpG_ID", "beta", "t-stat", "p-value", "FDR")
 meqtl.veh.df <- fread("~/bio/code/mpip/dex-stim-human-array/output/data/integrative/matrixEQTL/meqtls/with_missingness/me-qtl_cis_result_snps_with_na_veh_beta_fdr_005.csv", col.names = col.names) 
-
-# meqtl.veh.nom.df <- fread("output/data/integrative/matrixEQTL/meqtls/me-eqtl_cis_results_06122021/me-qtl_cis_result_veh.csv", col.names = col.names) 
 ```
 
 ```{r load-dnam-veh}
@@ -135,7 +129,6 @@ meqtl.veh.df                     <- meqtl.veh.df[CpG_ID %in% intersect.all.veh.p
 meqtl.veh.df  <- left_join(meqtl.veh.df, snp.loc.df)
 meqtl.veh.lst <- paste(meqtl.veh.df$CpG_ID, meqtl.veh.df$SNP_ID, sep = "-") #  3,007,281
 length(meqtl.veh.lst)
-# rm (snp.loc.df)
 ```
 
 # Overlap at meQTL level: significant veh meQTLs @ FDR <= 0.05 and public meQTL @ p-value < 1e-5
@@ -204,9 +197,6 @@ fc.dir.tbl <- table(pub.meqtl.intersect.with.veh.df$FC_direction)
 
 print(paste0("% of meQTLs with opposite allelic durections: ", signif(fc.dir.tbl["-1"] / sum(fc.dir.tbl), 4) * 100, " %")) # 97.08%
 print(paste0("% of meQTLs with parallel allelic durections: ", signif(fc.dir.tbl["1"] / sum(fc.dir.tbl), 4) * 100, " %"))  # 2.92 %
-
-#     -1       1 
-# 2768486   83192
 ```
 
 # Overlap at meQTL level: significant veh meQTLs @ FDR <= 0.05 and public meQTL @ p-value < 0.05

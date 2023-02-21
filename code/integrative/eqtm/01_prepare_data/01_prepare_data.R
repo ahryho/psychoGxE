@@ -1,5 +1,5 @@
 # For initial data processing, please refer to the code in:
-# "~/bio/code/mpip/dex-stim-human-array/code/integrative/meqtl/01_prepare_data/01_prepare_data.R"
+# "integrative/meqtl/01_prepare_data/01_prepare_data.R"
 library(data.table) 
 
 GetDeltaMtrx <- function(mtrx.veh, mtrx.dex, id.col.idx = 1, out.fn){

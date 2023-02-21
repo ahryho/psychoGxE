@@ -92,6 +92,7 @@ meqtl.veh.df   <- fread(meqtl.veh.fn, col.names = col.names)
 meqtl.delta.df <- fread(meqtl.delta.fn, col.names = col.names)
 
 meqtl.all.full.df <- fread()
+
 # Load eQTMs
 
 eqtm.veh.nom.fn   <- paste0(out.dir.pre, "eqtms/eqtm_cis_result_veh_beta.csv") 
@@ -105,11 +106,6 @@ eqtm.dex.nom.df   <- fread(eqtm.dex.nom.fn, col.names = col.names)
 eqtm.delta.nom.df <- fread(eqtm.delta.nom.fn, col.names = col.names)
 
 eqtm.all.nom.df   <- rbind(eqtm.veh.nom.df, eqtm.dex.nom.df, eqtm.delta.nom.df)
-
-# Load publicly available data from Josine L.Min at el. 2021
-# 
-# public.meqtl.df <- fread("data/public_data/GoDMC_mQTL/assoc_meta_all.csv")
-# public.meqtl.sub.df <- public.meqtl.df[, .(cpg, snp, pval)]
 ```
 
 ```{r, include = F, eval = T}
@@ -140,9 +136,6 @@ GetVennPlt(meqtl.df = meqtl.dex.df, eqtm.df = eqtm.dex.nom.df, cbPal.col = "#009
 
 ```{r out.width = "95%", include = T, eval = T, fig.cap = "Number of intersections, delta CpGs"}
 GetVennPlt(meqtl.df = meqtl.delta.df, eqtm.df = eqtm.dex.nom.df)
-# gridExtra::grid.arrange(venn.dex, venn.delta, nrow = 1, heights = 10, 
-#                         left = "delta meQTLs with dex eQTMs",
-#                         right = "delta meQTLs with delta eQTMs")
 ```
 
 ### Delta eQTMs
@@ -202,7 +195,6 @@ venn.rslt$venn.plot
 ```{r}
 venn.eqtm.df  <- eqtm.veh.nom.df[CpG_ID %in% venn.rslt$cpgs, .(CpG_ID, ENSG_ID)] 
 venn.meqtl.df <- meqtl.parallel.fc.grp.veh.dex.df[CpG_ID %in% venn.rslt$cpgs][, .(meQTL_ID, CpG_ID, SNP)] %>% unique()
-# plots.cnt     <- HistoPlotCntPerProbes(venn.eqtm.df)
 ```
 
 ```{r}
@@ -315,9 +307,8 @@ corrplot(gex.cor.mtrx,
 #### Examples
 
 ```{r include = T, eval = T}
-# paste0("Scatter plot for the independent significant at FDR <= ", fdr.thr, " meQTLs")
 eqtm.id       <- eqtm.veh.nom.df[eQTM_ID %in% top.eqtm$eQTM_ID][fdr_eqtm == min(fdr_eqtm), eQTM_ID]
-selected.eqtm <- eqtm.veh.nom.df[eQTM_ID %in% eqtm.id[1]] # beta == max(beta) cg10186336
+selected.eqtm <- eqtm.veh.nom.df[eQTM_ID %in% eqtm.id[1]] 
 
 selected.meqtl <- meqtl.parallel.fc.grp.veh.dex.df[CpG_ID %in% selected.eqtm$CpG_ID, 
                                                  .(CpG_ID, SNP, beta, `p-value`, fdr, treatment)] %>% unique()
@@ -445,9 +436,8 @@ corrplot(gex.cor.mtrx,
 #### Examples
 
 ```{r include = T, eval = T}
-# paste0("Scatter plot for the independent significant at FDR <= ", fdr.thr, " meQTLs")
 eqtm.id       <- eqtm.dex.nom.df[eQTM_ID %in% intersect.dex.veh.eqtms][fdr_eqtm == min(fdr_eqtm), eQTM_ID]
-selected.eqtm <- eqtm.dex.nom.df[eQTM_ID %in% eqtm.id] # beta == max(beta) cg18193195
+selected.eqtm <- eqtm.dex.nom.df[eQTM_ID %in% eqtm.id]
 
 selected.meqtl <- meqtl.parallel.fc.grp.delta.df[CpG_ID %in% selected.eqtm$CpG_ID, 
                                                  .(CpG_ID, SNP, beta, `p-value`, fdr, treatment)] %>% unique()

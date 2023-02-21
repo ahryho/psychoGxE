@@ -77,7 +77,6 @@ out.dir.pre  <- "~/bio/code/mpip/dex-stim-human-array/output/data/integrative/ma
  meqtl.dex.fn   <- paste0(out.dir.pre, "meqtls/me-eqtl_cis_results_06122021/me-qtl_cis_result_dex_fdr_005.csv")  # "me-qtl_cis_result_dex_fdr_005.csv")
 meqtl.veh.fn   <- paste0(out.dir.pre, "meqtls//me-eqtl_cis_results_06122021/me-qtl_cis_result_veh_fdr_005.csv") # "me-qtl_cis_result_veh_fdr_005.csv")
 meqtl.delta.fn <- paste0(out.dir.pre, "meqtls/me-qtl_cis_result_delta_fdr_005.csv") # "me-qtl_cis_result_delta_beta.csv")# 
-# meqtl.delta.fn <- paste0("~/bio/code/mpip/dex-stim-human-array/output/data/integrative/matrixEQTL/geno_imputed_qc_ld/", "me-qtl_cis_result_delta.csv")
 
 col.names <- c("SNP", "CpG_ID", "beta_meqtl", "t-stat_meqtl", "p-value_meqtl", "fdr_meqtl")
 

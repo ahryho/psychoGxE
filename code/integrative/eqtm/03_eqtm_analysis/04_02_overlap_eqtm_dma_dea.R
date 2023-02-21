@@ -88,12 +88,6 @@ plot(fit2,
      labels = c("UP", "DOWN", "HYPO", "HYPER")
 )
 
-
-
-
-
-
-
 ## Map.df for significant gex
 
 map.sign.df <- map.df[Illumina_ID %in% sign.gex.df$Probe_Id, .(Illumina_ID, Gene_ID)]

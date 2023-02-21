@@ -17,15 +17,9 @@ mval <- "_beta"
 eqtm.in.pre  <- "/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/data/"
 eqtm.res.pre <- "/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/integrative/matrixEQTL/"
 
-# eqtm.in.pre  <- "~/bio/code/mpip/dex-stim-human-array/data/"
-# eqtm.res.pre <- "~/bio/code/mpip/dex-stim-human-array/output/data/integrative/matrixEQTL/"
-
 gex.layer.fn    <- paste0(eqtm.in.pre, "integrative/matrixEQTL/gex_mtrx_", treatment, ".csv")
 methyl.layer.fn <- paste0(eqtm.in.pre, "integrative/matrixEQTL/methyl", mval, "_mtrx_", treatment, ".csv")
 snp.layer.fn    <- paste0(eqtm.in.pre, "integrative/matrixEQTL/snp_mtrx.csv")
-# 
-# if(treatment != "delta") 
-#     bio.layer.fn <- paste0(eqtm.in.pre, "bio_mtrx_gex_", treatment, type, ".csv")
 
 # Prepare mtrx
 
@@ -75,9 +69,6 @@ all(pheno$DNA_ID == bio.layer$DNA_ID)
 
 # 3. Build model
 
-# res <- foreach(meqtl =  1:2, .combine = rbind, .packages = 'lme4') %dopar% {
-# res <- foreach(meqtl = 1:nrow(delta.meqtls.for.eqtms), .combine = rbind, .packages = 'lme4') %dopar% {
-# res <- lapply(1:2, function(meqtl){
 res <- lapply(1:nrow(delta.meqtls.for.eqtms), function(meqtl){
   sample <- pheno$Sample_ID
   cpg    <- delta.meqtls.for.eqtms$CpG_ID[meqtl]

@@ -16,13 +16,6 @@ eqtm.res.pre <- as.character(args[3])
 eqtm.in.pre  <- "/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/data/"
 eqtm.res.pre <- "/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/integrative/matrixEQTL/"
 
-# gex.layer.fn    <- paste0(eqtm.in.pre, "gex_mtrx_", treatment, ".csv")
-# methyl.layer.fn <- paste0(eqtm.in.pre, "methyl", mval, "_mtrx_", treatment, ".csv")
-# 
-# if(treatment != "delta") 
-#     bio.layer.fn <- paste0(eqtm.in.pre, "bio_mtrx_gex_", treatment, type, ".csv")
-
-
 gex.dex.layer.fn    <- paste0(eqtm.res.pre, "gex_residuals/gex_residuals_dex.csv")
 gex.veh.layer.fn    <- paste0(eqtm.res.pre, "gex_residuals/gex_residuals_veh.csv")
 
@@ -96,18 +89,6 @@ res <- foreach(eqtm = 1:nrow(selected.df), .combine = rbind, .packages = 'lme4')
   lmer.model <- lmer(gex ~ dnam +  pheno$Group + (1|sample), REML = F)
   
   res.anova  <- anova(lmer.null, lmer.model)
-  
-  # Statistics
-  # mean.veh <- round(mean(methyl.mtrx[cpg, samples.veh.ids]), 4)
-  # mean.dex <- round(mean(methyl.mtrx[cpg, samples.dex.ids]), 4)
-  # sd.veh   <- round(sd(methyl.mtrx[cpg, samples.veh.ids]), 4)
-  # sd.dex   <- round(sd(methyl.mtrx[cpg, samples.dex.ids]), 4)
-  # var.veh  <- round(var(methyl.mtrx[cpg, samples.veh.ids]), 4)
-  # var.dex  <- round(var(methyl.mtrx[cpg, samples.dex.ids]), 4)
-  
-  # fc       <- round(mean.dex - mean.veh, 4)# round(log2(mean.dex) - log2(mean.veh), 4)
-  # var.all  <- round(var(beta.mtrx[cpg, ]), 4)
-  # mad      <- round(mad(beta.mtrx[cpg, ]), 4)
   
   cbind(selected.df$eQTM_ID[eqtm], 
         cpg, 
