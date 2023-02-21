@@ -25,44 +25,46 @@ For detailed data overview, please refer to the [data overview](https://github.c
 
 The analysis includes the follwong steps:
 
-1. DNA methhylation (DNAm) profiling
+## 1. DNA methhylation (DNAm) profiling
    
-   The workflow and scripts are located: [DNAm QCc](https://github.com/ahryho/dex-stim-human-dna-methyl-qc)
+The workflow and scripts are located: [DNAm QCc](https://github.com/ahryho/dex-stim-human-dna-methyl-qc)
 
-2. Smoking score estimation
+## 2. Smoking score estimation
    
-   The workflow and scripts are located: [smoking score calculation](https://github.com/ahryho/dex-stim-human-smoking-score)
+The workflow and scripts are located: [smoking score calculation](https://github.com/ahryho/dex-stim-human-smoking-score)
 
-3. Differential DNA methylation analysis
+## 3. Differential DNA methylation analysis
 
-   The workflow and scripts are located: [dDNAm](https://github.com/ahryho/psychoGE/tree/master/code/methylation/)
+The workflow and scripts are located: [dDNAm](https://github.com/ahryho/psychoGE/tree/master/code/methylation/)
 
-4. Methylation quantitative trait loci (meQTL) analysis
+## 4. Methylation quantitative trait loci (meQTL) analysis
 
 
-5. Expression quantitative trait methylation (eQTM) analysis
+## 5. Expression quantitative trait methylation (eQTM) analysis
 
 The workflow and scripts are located: [eQTM analysis](https://github.com/ahryho/psychoGE/tree/master/code/integrative/eqtm)
 
-6. Functional genomic annotation of differential DNAm
+## 6. Functional genomic annotation of differential DNAm
 
 
-7. Cell type composition estimation
+## 7. Cell type composition estimation
 
 The blood cell-type components were predicted for DNA methylation data on whole blood samples from the MPIP cohort. The model proposed by Salas et al.54 and R package EpiDISH55 were used to estimate the proportions of six main cell types in whole blood (CD4+ T cells, CD8+ T cells, monocytes, B cells, granulocytes, and natural killer cells) as well as subtypes of T and B cells (naïve, memory, and regulatory CD4+ T cells as well as naïve and memory CD8+ T cells and naïve and memory B cells).
 
-For more details, please refer to the [DNAm cell type composition](https://github.com/ahryho/dex-stim-human-dna-methyl-qc#9-cell-types-estimation)
+For more details, please refer to [methodology](https://github.com/ahryho/dex-stim-human-dna-methyl-qc#9-cell-types-estimation) and [scripts](https://github.com/ahryho/dex-stim-human-dna-methyl-qc/tree/master/09_estimate_cell_proportion).
 
-8. Cell-type specific analysis
+For scripts: [scripts]()
 
-
-9.  Functional enrichment analysis
-
-
-10. Histone mark enrichment analysis
+## 8. Cell-type specific analysis
 
 
-11. Genome-wide association studies (GWAS) enrichment analysis
+## 9.  Functional enrichment analysis
 
 
-12. Phenome-wide association studies (PheWAS) analysis
+## 10. Histone mark enrichment analysis
+
+
+## 11. Genome-wide association studies (GWAS) enrichment analysis
+
+
+## 12. Phenome-wide association studies (PheWAS) analysis
