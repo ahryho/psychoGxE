@@ -1,0 +1,92 @@
+---
+title: "DNAm Analysis"
+subtitle: "Dexamethasone-Stimulated Human Array Project"
+author: 
+  - name: Anastasiia Hryhorzhevska
+    email: anastasiia_hry@psych.mpg.de
+    url: https://github.com/ahryho
+    affiliation: Max Planck Institute of Psychiatry
+    affiliation_url: https://www.psych.mpg.de/2664393/medizinische-genomforschung
+date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    df_print: paged
+    css: style.css
+    code_folding: hide
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+options(digits = 2, width = 100, stringsAsFactors = T)
+knitr::opts_chunk$set(echo = TRUE,
+                      tidy.opts = list(width.cutoff = 100),
+                      tidy = TRUE,
+                      fig.pos = "H",
+                      dev = "png",
+                      dpi = 72,
+                      warning = FALSE, 
+                      message = FALSE, 
+                      cache = TRUE, 
+                      cache.lazy = FALSE)
+
+# define DT as the standard printing method for data.frame
+library(knitr)
+knit_print.data.frame <- function(x, ...) {
+  knit_print(DT::datatable(x,
+                           filter="top",
+                           rownames = FALSE,
+                           extensions = "FixedColumns",
+                           options = list(
+                             scrollX = TRUE,
+                             pageLength = 5
+                             
+                           )), ...)
+}
+
+registerS3method("knit_print", "data.frame", knit_print.data.frame)
+
+
+library(ggplot2)
+library(tidyverse)
+library(plyr)
+library(data.table)
+library(viridis)
+library(ggrepel)
+library(data.table)
+library(RColorBrewer)
+library(corrplot)
+library(gridExtra)
+library(plotly)
+library(GenomicRanges)
+```
+# Introduction
+***
+
+The introduction will come soon.
+
+_The genotype roadmap:_
+
+1. Subset data:
+    + MAF >= 5%
+    + filter only SNPs
+    + exclude MHC region
+2. LD pruning based on pairwise correlation with the following options:
+    + a window of 50 SNPs: to calculate LD between each pair of SNPs
+    + remove one of a pair if the LD is greater than 0.2
+    + short the window 5 SNPs forward
+3. MDS / PCA in PLINK
+4. Analysis in R
+
+
+```{r source-functionr, include=F, eval = T}
+source("~/bio/code/mpip/dex-stim-human-array/code/methylation/02_dma/01_dmp/funcitons.R")
+source("~/bio/code/mpip/dex-stim-human-array/code/integrative/util.R")
+```
+
+<!-- # Combine -->
+
+```{r child = c('02_lmem_rslt_comparison.Rmd', '02_lmem_svs_pcs_rslt_analysis.Rmd')}
+```
