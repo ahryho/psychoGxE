@@ -35,7 +35,7 @@ The analysis includes the follwong steps:
 
 3. Differential DNA methylation analysis
 
-   The workflow and scripts are located: [dDNAm](https://github.com/ahryho/psychoGE/tree/master/code/methylation/02_dma)
+   The workflow and scripts are located: [dDNAm](https://github.com/ahryho/psychoGE/tree/master/code/methylation/)
 
 4. Methylation quantitative trait loci (meQTL) analysis
 5. Expression quantitative trait methylation (eQTM) analysis
