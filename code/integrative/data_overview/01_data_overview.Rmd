@@ -71,7 +71,6 @@ standard_height_mm <- 100
 # Introduction
 ***
 ```{r, include = F, eval = T}
-# source("~/bio/code/mpip/dex-stim-human-array/code/methylation/02_dma/01_dmp/funcitons.R")
 source("~/bio/code/mpip/dex-stim-human-array/code/integrative/util.R")
 ```
 
@@ -230,21 +229,12 @@ t.mval.mtrx <- t(mval.mtrx)
 pal <- brewer.pal(8, "Set2")
 
 pca.obj <- prcomp(mval.mtrx, retx = F, center = T, scale. = F, rank. = 10)  
-# pca.obj.retx <- prcomp(mval.mtrx, retx = T, center = T, scale. = F, rank. = 10)  
 
-# temp <- pca.obj
 saveRDS(pca.obj,
         "~/bio/code/mpip/dex-stim-human-array/data/methylation/dex_methyl_pca.rds")
-
-# write.csv2(dnam.pcs, 
-#            "~/bio/code/mpip/dex-stim-human-array/data/methylation/dex_methyl_top10pcs.csv", 
-#            row.names = F, quote = F)
 ```
 
 ```{r load-dnam-pcs, include = F, eval = T}
-# dnam.pcs.fn <- "~/bio/code/mpip/dex-stim-human-array/data/methylation/dex_methyl_top10pcs.csv"
-# dnam.pcs    <- read.csv2(dnam.pcs.fn)
-
 pca.obj.fn <- "~/bio/code/mpip/dex-stim-human-array/output/data/methylation/02_dmp/dex_methyl_pca.rds"
 pca.obj    <- readRDS(pca.obj.fn)
 
@@ -263,9 +253,6 @@ colnames(dnam.pcs) <- paste0("DNAm_PC", 1:10)
 #### DNAm SVs vs Salas BCCs
 
 ```{r include = F, eval = T}
-# bcc.epidish.rpc.salas <- read.csv2( 
-#   file = "~/bio/code/mpip/dex-stim-human-array/output/data/methylation/dex_stim_array_human_epidish_salas_bcc_rpc.csv")
-
 bcc.epidish.rpc.salas.base <- read.csv( 
   file = "~/bio/code/mpip/dex-stim-human-array/output/data/methylation/dex_stim_array_human_epidish_salas_bcc_rpc_baseline.csv")[, -1]
 
@@ -332,7 +319,6 @@ cor.mtrx <- cor(tmp.df)
 #### DNAm SVs vs BCCs
 
 ```{r out.width = "98%", fig.cap = "Relationship of the top 10 SVs derived from DNAm data with available and derived covariates", include = T, eval = T}
-# cor.mtrx.plt <- cor.mtrx[paste0("DNAm_SV", 1:10), -which(colnames(cor.mtrx) %in% c(paste0("DNAm_SV", 1:10), paste0("DNAm_PC", 1:10)))]
 cor.mtrx.plt <- cor.mtrx[paste0("DNAm_SV", 1:10), which(colnames(cor.mtrx) %in% c(paste("meth", colnames(bcc.meth), sep = "." ),
                                                                                   colnames(bcc.cellcode),
                                                                                   colnames(bcc)))]
@@ -363,7 +349,6 @@ corrplot(cor.mtrx.plt,
 #### DNAm SVs vs Bio
 
 ```{r out.width = "98%", fig.cap = "Relationship of the top 10 SVs derived from DNAm data with available and derived covariates", include = T, eval = T}
-# cor.mtrx.plt <- cor.mtrx[-which(rownames(cor.mtrx) %in% paste0("DNAm_SV", 1:10)), paste0("DNAm_SV", 1:10)]
 cor.mtrx.plt <- cor.mtrx[paste0("DNAm_SV", 1:10), c("Dex", "Status", "Sex", "BMI", "Age", "DNAm_Age", "DNAm_Smoke")]
 par(cex = 1)
 corrplot(cor.mtrx.plt, 
@@ -727,16 +712,12 @@ gex.mtrx    <- gex.mtrx %>% dplyr::select(pheno$RNA_ID)
 
 ```{r compute-gex-pcs, include = F, eval = F}
 gex.pca.obj <- prcomp(gex.mtrx, retx = F, center = T, scale. = F, rank. = 10)  
-# gex.obj.retx <- prcomp(gex.mtrx, retx = T, center = T, scale. = F, rank. = 10)  
 
 saveRDS(gex.pca.obj,
         "~/bio/code/mpip/dex-stim-human-array/data/gene_expression/dex_gex_pca.rds")
 ```
 
 ```{r load-gex-pcs, include = F, eval = T}
-# dnam.pcs.fn <- "~/bio/code/mpip/dex-stim-human-array/data/methylation/dex_methyl_top10pcs.csv"
-# dnam.pcs    <- read.csv2(dnam.pcs.fn)
-
 gex.pca.obj.fn <- "~/bio/code/mpip/dex-stim-human-array/data/gene_expression/dex_gex_pca.rds"
 gex.pca.obj    <- readRDS(gex.pca.obj.fn)
 
@@ -773,7 +754,6 @@ cor.mtrx <- cor(tmp.df)
 #### RNA SVs vs BCCs
 
 ```{r out.width = "98%", fig.cap = "Relationship of the top 10 SVs derived from GEX data with available and derived covariates", include = T, eval = T}
-# cor.mtrx.plt <- cor.mtrx[paste0("DNAm_SV", 1:10), -which(colnames(cor.mtrx) %in% c(paste0("DNAm_SV", 1:10), paste0("DNAm_PC", 1:10)))]
 cor.mtrx.plt <- cor.mtrx[paste0("gex.V", 1:10), which(colnames(cor.mtrx) %in% c(paste("meth", colnames(bcc.meth), sep = "." ), 
                                                                                 colnames(bcc.cellcode),
                                                                                 colnames(bcc)))]
@@ -789,7 +769,6 @@ corrplot(cor.mtrx.plt,
 #### DNAm SVs vs GEX SVs and SNP PCs
 
 ```{r out.width = "98%", fig.cap = "Relationship of the top 10 SVs derived from GEX data with available and derived covariates", include = T, eval = T}
-# cor.mtrx.plt <- cor.mtrx[-which(rownames(cor.mtrx) %in% paste0("DNAm_SV", 1:10)), paste0("DNAm_SV", 1:10)]
 cor.mtrx.plt <- cor.mtrx[paste("gex", colnames(sv.gex), sep = "." ), 
                          which(colnames(cor.mtrx) %in% c(paste0("DNAm_SV", 1:10),
                                                          paste0("PC", 1:5 )))]
@@ -805,7 +784,6 @@ corrplot(cor.mtrx.plt,
 #### GEX SVs vs Bio
 
 ```{r out.width = "98%", fig.cap = "Relationship of the top 10 SVs derived from GEX data with available and derived covariates", include = T, eval = T}
-# cor.mtrx.plt <- cor.mtrx[-which(rownames(cor.mtrx) %in% paste0("DNAm_SV", 1:10)), paste0("DNAm_SV", 1:10)]
 cor.mtrx.plt <- cor.mtrx[paste("gex", colnames(sv.gex), sep = "." ), 
                          c("Dex", "Status", "Sex", "BMI", "Age", "DNAm_Age", "DNAm_Smoke")]
 par(cex = 1)
@@ -1202,7 +1180,6 @@ cor.mtrx <- cor(tmp.df)
   + __Treg__: T regulatory cells
 
 ```{r out.width = "110%", fig.cap = "Relationship of the BCCs", include = T, eval = T}
-# cor.mtrx.plt <- cor.mtrx[paste0("DNAm_SV", 1:10), -which(colnames(cor.mtrx) %in% c(paste0("DNAm_SV", 1:10), paste0("DNAm_PC", 1:10)))]
 cor.mtrx.plt <- cor.mtrx[which(rownames(cor.mtrx) %in% c(paste("meth", colnames(bcc.meth), sep = "." ),
                                                          colnames(bcc.salas),
                                                          colnames(bcc.cellcode),
@@ -1281,9 +1258,6 @@ bcc.epidish.rpc.salas <- rbind(bcc.epidish.rpc.salas.base, bcc.epidish.rpc.salas
 
 colnames(bcc.epidish.rpc.salas)[2:13] <- paste0("salas.", colnames(bcc.epidish.rpc.salas)[2:13])
 
-# pheno <- pheno.full[Include == 1]
-# pheno <- left_join(pheno, bcc.epidish.rpc.salas)
-# 
 pheno <- pheno.full[Include == 1][Dex == 0]
 pheno <- left_join(pheno, bcc.epidish.rpc.salas, by = "DNAm_ID")
 
@@ -1316,7 +1290,6 @@ cor.mtrx <- cor(tmp.df)
 ```
 
 ```{r out.width = "110%", fig.cap = "Relationship of the BCCs", include = T, eval = T}
-# cor.mtrx.plt <- cor.mtrx[paste0("DNAm_SV", 1:10), -which(colnames(cor.mtrx) %in% c(paste0("DNAm_SV", 1:10), paste0("DNAm_PC", 1:10)))]
 corrplot(cor.mtrx, 
          method = "color", cl.pos = "r", cl.cex = 0.6,
          type = "upper",
@@ -1372,13 +1345,7 @@ snp.pcs  <- pheno[, paste0("PC", 1:2)]
 
 tmp.df <- data.frame(sv.gex, 
                      bcc.cellcode,
-                     Treatment = as.numeric(pheno$Dex)
-                     # Status = as.numeric(pheno$Status), 
-                     # Sex = as.numeric(pheno$Sex), 
-                     # BMI = pheno$BMI_D1, 
-                     # Age = pheno$Age, 
-                     # snp.pcs
-                     ) %>% 
+                     Treatment = as.numeric(pheno$Dex)) %>% 
   na.omit() %>% 
   scale()
 
@@ -1386,7 +1353,6 @@ cor.mtrx <- cor(tmp.df)
 ```
 
 ```{r out.width = "110%", fig.cap = "Relationship of the BCCs", include = T, eval = T}
-# cor.mtrx.plt <- cor.mtrx[paste0("DNAm_SV", 1:10), -which(colnames(cor.mtrx) %in% c(paste0("DNAm_SV", 1:10), paste0("DNAm_PC", 1:10)))]
 corrplot(cor.mtrx, 
          method = "color", cl.pos = "r", cl.cex = 0.6,
          type = "upper",
