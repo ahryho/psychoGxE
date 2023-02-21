@@ -31,7 +31,7 @@ The analysis includes the follwong steps:
 
 2. Smoking score estimation
    
-
+   The workflow and scripts are located: [smoking score calculation](https://github.com/ahryho/dex-stim-human-smoking-score)
 
 3. Differential DNA methylation analysis
 4. Methylation quantitative trait loci (meQTL) analysis
