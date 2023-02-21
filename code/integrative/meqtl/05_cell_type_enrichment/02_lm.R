@@ -1,12 +1,7 @@
 
-# comments from Code Review:
-# I added a header and section headers, I think these are nice for redability of R Scripts
-
-
-########################################################################
+#######################################################################
 ## Title: Cell type-specificity on DMAm using lm
-## Date: 
-## Author: Anastasiia
+## Author: Anastasiia Hryhorzhevska
 ########################################################################
 
 ## Section: load packages
@@ -24,9 +19,7 @@ setwd("/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/")
 ## Section: load data
 ########################################################################
 args            <- commandArgs(T)
-treatment       <- as.character(args[1]) # dex
-# beta.mtrx.fn    <- as.character(args[2])
-# pheno.fn        <- as.character(args[3])
+treatment       <- as.character(args[1]) 
 
 beta.mtrx.fn    <- paste0("data/integrative/matrixEQTL/methyl_beta_mtrx_", treatment, ".csv")
 pheno.fn        <- "data/pheno/pheno_full_for_kimono.csv"
@@ -55,7 +48,7 @@ bcc.df <- read.csv2(bcc.fn)
 bcc.df <- bcc.df[match(dnam.veh.ids, bcc.df$DNAm_ID,), ] # put in the same order bcc df as pheno df
 cov.df <- cbind(bcc.df[, -1], pheno[, c("DNA_ID", "Sex", "Age", "BMI_D1", "Status", "DNAm_SmokingScore", "PC1", "PC2")])
 
-## Section: Making sure about samples in the same order for all dfs
+## Section: Check the order
 ########################################################################
 samples.ids <- as.character(cov.df$DNA_ID)
 table(colnames(beta.mtrx) %in% samples.ids)

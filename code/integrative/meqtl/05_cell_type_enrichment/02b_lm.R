@@ -11,8 +11,6 @@ setwd("/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/")
 
 args            <- commandArgs(T)
 treatment       <- as.character(args[1]) # dex
-# beta.mtrx.fn    <- as.character(args[2])
-# pheno.fn        <- as.character(args[3])
 
 beta.mtrx.fn    <- paste0("data/integrative/matrixEQTL/methyl_beta_mtrx_", treatment, ".csv")
 pheno.fn        <- "data/pheno/pheno_full_for_kimono.csv"
@@ -58,8 +56,6 @@ no.cores <- detectCores() - 1
 cl <- makeCluster(no.cores)
 registerDoParallel(cl)
 
-# cpg <- 1 #cg26928153
-# res <- foreach(cpg = 1:3, .combine = rbind) %dopar% {
 res <- foreach(cpg =  1:nrow(beta.mtrx), .combine = rbind) %dopar% {
   mdl.coef <- data.frame()
   for(blood.type.idx in 1:12){

@@ -1,8 +1,3 @@
-# Cell-type enrichment
-# 
-# Load packages
-#
-
 library(data.table)
 library(dplyr) 
 

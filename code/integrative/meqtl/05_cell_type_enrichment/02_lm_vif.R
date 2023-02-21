@@ -1,8 +1,7 @@
 
 ########################################################################
 ## Title: Script for checking for multicollinarity between blood cell types using VIF
-## Date: 
-## Author: Anastasiia
+## Author: Anastasiia Hryhorzhevska
 ########################################################################
 
 ## Section: load packages
@@ -53,7 +52,7 @@ bcc.df <- read.csv2(bcc.fn)
 bcc.df <- bcc.df[match(dnam.veh.ids, bcc.df$DNAm_ID,), ] # put in the same order bcc df as pheno df
 cov.df <- cbind(bcc.df[, -1], pheno[, c("DNA_ID", "Sex", "Age", "BMI_D1", "Status", "DNAm_SmokingScore", "PC1", "PC2")])
 
-## Section: Making sure about samples in the same order for all dfs
+## Section: check whether the samples in the same order for all dfs
 ########################################################################
 samples.ids <- as.character(cov.df$DNA_ID)
 table(colnames(beta.mtrx) %in% samples.ids)
