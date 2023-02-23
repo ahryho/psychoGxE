@@ -36,7 +36,7 @@ The analysis includes the follwong steps:
 
 ### 1. DNA methhylation (DNAm) profiling
    
-For the methodology and scripts, please refer to [DNAm QCc](https://github.com/ahryho/dex-stim-human-dna-methyl-qc#dex-stimulated-dnam-arrays-processing).
+For the methodology and scripts, please refer to [DNAm QC](https://github.com/ahryho/dex-stim-human-dna-methyl-qc#dex-stimulated-dnam-arrays-processing).
 
 ### 2. Smoking score estimation
    
