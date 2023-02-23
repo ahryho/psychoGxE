@@ -5,7 +5,7 @@ library(parallel)
 library(foreach)
 library(doParallel)
 
-# LMEM with age, sex, BMI, and MDD status, DNAm SV{1-3}
+# LMEM with age, sex, BMI, and MDD status
 
 # 1. Load data
 
