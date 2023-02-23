@@ -19,3 +19,7 @@ To identify the number of significant GR-response differentially methylated posi
     - `lmem_svs_pcs_smoke`: controlling for sex, age, BMI, MDD, SVs derived from DNAm, genotype PCs, and smoking score 
 - `02-dma`: script for identification of DMPs and DMRs, and gene set enrichment analysis using rGREAT 
 - `03_additional_statistics`: additional calculations
+
+### Results
+
+The results are stored on the MPIP computational cluster: `/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/methylation/`
