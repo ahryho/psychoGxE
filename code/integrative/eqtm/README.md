@@ -14,7 +14,10 @@ The eQTM analysis aims to investigate whether the DNA methylation influences gen
     - `run_eqtm`: eQTMs calculation using MatrixEQTL package
     - `run_eqtm_with_lmem`:  eQTMs calculation using lmer
     - `run_eqtm_with_lmem_with_snps`: eQTMs calculation using lm and adjusting for meQTL SNP
-- `03_eqtm_analysis`
+- `03_eqtm_analysis`:
+
+    - `eqtm_primary_results_analysis`: analysis of the data obtained on the previous step
+    - `overlap_eqtm_dma_dea`:  overlap of the eQTM analysis results with differential DNAm and GEX analyses
 
 ### Results
 
