@@ -11,11 +11,11 @@ To identify the number of significant GR-response differentially methylated posi
 - `00_prepare the data`: the script for phenotype data to identify differentially methylated regions (DMRs)
 - `01_lmem_dnam`: the scripts for DMPs identifications. 6 models were tested:
   
-      - `lmem_bcc`: controlling for sex, age, BMI, MDD, blood cell counts (BCC) derived from DNAm
-      - `lmem_bcc_cellcode_pcs`: controlling for sex, age, BMI, MDD, BCC derived from gene-expression, and genotype PCs
-      - `lmem_bcc_pcs`: controlling for sex, age, BMI, MDD, BCCs derived from DNAm, genotype PCs
-      - `lmem_no_bcc`: controlling for sex, age, BMI, MDD
-      - `lmem_svs_pcs`: controlling for sex, age, BMI, MDD, SVs derived from DNAm, genotype PCs
-      - `lmem_svs_pcs_smoke`: controlling for sex, age, BMI, MDD, SVs derived from DNAm, genotype PCs, and smoking score 
+    - `lmem_bcc`: controlling for sex, age, BMI, MDD, blood cell counts (BCC) derived from DNAm
+    - `lmem_bcc_cellcode_pcs`: controlling for sex, age, BMI, MDD, BCC derived from gene-expression, and genotype PCs
+    - `lmem_bcc_pcs`: controlling for sex, age, BMI, MDD, BCCs derived from DNAm, genotype PCs
+    - `lmem_no_bcc`: controlling for sex, age, BMI, MDD
+    - `lmem_svs_pcs`: controlling for sex, age, BMI, MDD, SVs derived from DNAm, genotype PCs
+    - `lmem_svs_pcs_smoke`: controlling for sex, age, BMI, MDD, SVs derived from DNAm, genotype PCs, and smoking score 
 - `02-dma`: script for identification of DMPs and DMRs, and gene set enrichment analysis using rGREAT 
 - `03_additional_statistics`: additional calculations
