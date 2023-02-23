@@ -12,3 +12,18 @@ The FDR threshold of 0.05 was used to identify the number of significant baselin
 ### Assessment whether the meQTL CpGs are cell-type-specific
 
 To assess whether the meQTL CpGs are cell-type-specific, the significant baseline and GR-response CpG sites among those in common were compared. In addition, the Kolmogorov-Smirnov test was used to evaluate the significance between GR-response and baseline for each blood cell type.
+
+### Folders structure
+
+- `00_prepare the data`: the script for phenotype data to identify differentially methylated regions (DMRs)
+- `01_tca`:
+- `02_lm`:
+- `02_lm_vif`:
+- `02b_lm`:
+- `03_get_significant`:
+- `04_overlap_with_provencal_pnas_data`:
+- `05_epistress_score`:
+
+### Results
+
+The results are stored on the MPIP computational cluster: `/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/integrative/cell_type_enrichment/`
