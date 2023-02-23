@@ -36,15 +36,15 @@ The analysis includes the follwong steps:
 
 ### 1. DNA methhylation (DNAm) profiling
    
-For the methodology and scripts, please refer to [DNAm QCc](https://github.com/ahryho/dex-stim-human-dna-methyl-qc)
+For the methodology and scripts, please refer to [DNAm QCc](https://github.com/ahryho/dex-stim-human-dna-methyl-qc#dex-stimulated-dnam-arrays-processing).
 
 ### 2. Smoking score estimation
    
-For the methodology and scripts, please refer to [smoking score calculation](https://github.com/ahryho/dex-stim-human-smoking-score)
+For the methodology and scripts, please refer to [smoking score calculation](https://github.com/ahryho/dex-stim-human-smoking-score).
 
 ### 3. Differential DNA methylation analysis
 
-For the methodology and scripts, please refer to [dDNAm](https://github.com/ahryho/psychoGE/tree/master/code/methylation/)
+For the methodology and scripts, please refer to [dDNAm](https://github.com/ahryho/psychoGE/tree/master/code/methylation/).
 
 ### 4. Methylation quantitative trait loci (meQTL) analysis
 
