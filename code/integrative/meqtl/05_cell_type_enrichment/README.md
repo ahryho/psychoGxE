@@ -16,13 +16,12 @@ To assess whether the meQTL CpGs are cell-type-specific, the significant baselin
 ### Folders structure
 
 - `00_prepare the data`: the script for phenotype data to identify differentially methylated regions (DMRs)
-- `01_tca`:
-- `02_lm`:
-- `02_lm_vif`:
-- `02b_lm`:
-- `03_get_significant`:
-- `04_overlap_with_provencal_pnas_data`:
-- `05_epistress_score`:
+- `01_tca`: Tensor Composition Analysis usig the R package TCA
+- `02_lm_vif`: script for checking for multicollinarity between blood cell types using VIF
+- `02a_lm`: cell type-specificity on DMAm using lm excluding the cell type with the highest VIF
+- `02b_lm`: cell type-specificity on DMAm using lm including all cell types
+- `03_get_significant`: get statistically signififcant at FDR < 0.05 associations, and extract assocaition with meQTL CpGs
+- `04_epistress_score`: epistress score calculation for Sarah Merrill from the University of British Columbia 
 
 ### Results
 
