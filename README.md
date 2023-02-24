@@ -88,4 +88,4 @@ For the methodology and scripts, please refer to the [GWAS enrichment analysis](
 
 ### 12. Phenome-wide association studies (PheWAS) analysis
 
-For the methodology and scripts, please refer to the [GWAS enrichment analysis](https://github.com/ahryho/psychoGE/tree/master/code/phewas).
+For the methodology and scripts, please refer to the [PheWAS analysis](https://github.com/ahryho/psychoGE/tree/master/code/integrative/phewas).
