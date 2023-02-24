@@ -96,9 +96,6 @@ fwrite(methyl.mtrx.dex,
        paste0(output.eqtm.pre, "methyl_mval_mtrx_dex.csv"),
        quote = F, row.names = F, sep = ";")
 
-# methyl.mtrx.dex <- fread(paste0(output.eqtm.pre, "methyl_beta_mtrx_dex.csv"), select = dex.ids$DNA_ID)
-# methyl.mtrx.veh <- fread(paste0(output.eqtm.pre, "methyl_beta_mtrx_veh.csv"), select = veh.ids$DNA_ID)
-
 # Calculate the differences between veh and dex
 
 # Residuals
@@ -107,13 +104,9 @@ lmer.res.out.fn <- "/home/ahryhorzhevska/mpip/bio/code/mpip/dex-stim-human-array
 methyl.mtrx.veh <- fread(paste0(lmer.res.out.fn, "dnam_residuals_veh.csv"))
 methyl.mtrx.dex <- fread(paste0(lmer.res.out.fn, "dnam_residuals_dex.csv"), select = colnames(methyl.mtrx.veh))
 
-# methyl.mtrx.veh <- fread("~/bio/code/mpip/dex-stim-human-array/output/data/integrative/matrixEQTL/dnam_residuals/dnam_residuals_veh.csv")
-# methyl.mtrx.dex <- fread("~/bio/code/mpip/dex-stim-human-array/output/data/integrative/matrixEQTL/dnam_residuals/dnam_residuals_dex.csv")
-
 all(rownames(methyl.mtrx.veh) == rownames(methyl.mtrx.dex))
 order.idx  <- match(colnames(methyl.mtrx.dex), colnames(methyl.mtrx.veh))
 
-# methyl.mtrx.dex <- methyl.mtrx.dex[, colnames(methyl.mtrx.veh)]
 all(colnames(methyl.mtrx.veh) == colnames(methyl.mtrx.dex))
 
 methyl.mtrx.delta <- methyl.mtrx.veh[,-1] - methyl.mtrx.dex[,-1] 
