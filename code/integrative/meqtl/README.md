@@ -16,12 +16,18 @@ Since cis-regions with an extensive LD structure increase the false positive meQ
 
 ### Folders structure
 
-- `00_prepare the data`: the script for phenotype data to identify differentially methylated regions (DMRs)
-- `02_get_distances_between_cpgs_ensg`: Tensor Composition Analysis usig the R package TCA
-- `03_run_qtl_analysis`:
-- `04_me-qtl_analysis`: cell type-specificity on DMAm using lm excluding the cell type with the highest VIF
+- `01_prepare the data`: 
+  - `dnam_residuals`: calculation of DNAm residuals
+  - `01_prepare_data`: script for preparing omic data for QTL analysis, i.e. input for MatrixEQTL 
+  - `02_prepare_meqtl_parallel_and_opposite_fc_groups`: splitting the meqtl into groups based on allelic direction
+  - `03_prepare_snps`: script for preparing SNP data for MatrixEQTL
+- `02_get_distances_between_cpgs_ensg`: calculation distances between CpGs and ENSGs
+- `03_run_qtl_analysis`: meQTLs calculation using MatrixEQTL package
+- `04_me-qtl_analysis`: 
 
 ### Results
 
-The results are stored on the MPIP computational cluster: `/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/integrative/matrixEQTL/meqtls/`
+The results are stored on the MPIP computational cluster: `/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/integrative/matrixEQTL/meqtls`
+
+In case of genotypes with missing values, the data are stored in the subfolder: `/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/integrative/matrixEQTL/meqtls/clumped/with_missigness`
 
