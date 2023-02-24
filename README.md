@@ -89,3 +89,10 @@ For the methodology and scripts, please refer to the [GWAS enrichment analysis](
 ### 12. Phenome-wide association studies (PheWAS) analysis
 
 For the methodology and scripts, please refer to the [PheWAS analysis](https://github.com/ahryho/psychoGE/tree/master/code/integrative/phewas).
+
+
+## Results and additional information
+
+Results are stored on the MPIP computational cluster: `/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/`.
+
+For additional information on methodology, results and limitations, please refer to the [manuscript]().
