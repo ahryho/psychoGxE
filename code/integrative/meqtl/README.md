@@ -13,7 +13,6 @@ $res_{basline}$ $∼$ $CpG_{baseline}$ $-$ $(β_0$  $+$  $β_1 \times$ Sex $+$ $
 
 Since cis-regions with an extensive LD structure increase the false positive meQTLs, the Benjamini-Hochberg FDR method was applied to correct the adjusted p-value significance by using only the most significant and independent SNPs per probe. The number of independent meSNPs per cis region was identified by LD clumping the SNPs using the clump command in PLINK. Each independent SNP formed a SNP bin aggregating all other SNPs into bins by independent SNP at $r_2$ $>$ 0.2 and distance < 1Mb, such that all SNPs within a given bin were correlated to the independent SNP, but to any other tag SNP.  The false-positive SNP-probe pairs were limited to less than 5%, applying the **FDR** as statistical significance.
 
-
 ### Folders structure
 
 - `01_prepare the data`: 
