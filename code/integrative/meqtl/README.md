@@ -1,7 +1,7 @@
 # Methylation quantitative trait loci analysis
 The methylation QTL (meQTL) analysis was restricted to those SNP-CpG pairs that map within a region of 1Mb upstream or downstream. For each CpG-SNP pair, with the SNP encoded by 0, 1 and 2 according to the frequency of the minor allele and covariates, the association between baseline methylation site, and genotype, was assumed to be linear. To obtain baseline cis-meQTLs, the model was constructed controlling for sex, age, BMI, depression status (MDD), first three SVs derived from DNA methylation data, first two PCs which describes the genetic variability of the study cohort, and smoking score (SS) as described before and using the R package MatrixEQTL:
 
-$CpG_{baseline} $∼$ β_0$  $+$  $β_1 \times$ Sex $+$ $β_2 \times$ Age $+$ $β_3 \times$ BMI $+$ $β_4 \times$ MDD $+$ $β_(5-7) \times SV_{5-7} $+$ $β_{8,9} \times PC_{1,2} $+$ $β_{10} \times SS$ $+$ $β_{SNP} \times$ SNP $+$ $ϵ$
+$CpG_{baseline}$ $∼$ β_0$  $+$  $β_1 \times$ Sex $+$ $β_2 \times$ Age $+$ $β_3 \times$ BMI $+$ $β_4 \times$ MDD $+$ $β_{5-7} \times SV_{5-7}$ $+$ $β_{8,9} \times PC_{1,2} $+$ $β_{10} \times SS$ $+$ $β_{SNP} \times$ SNP $+$ $ϵ$
 
 To calculate GR-response cis-meQTLs, a linear model of the change on DNA methylation was constructed between baseline and GR-response using residuals from the linear regression and adjusting for the same covariates as for baseline meQTLs. 
 
@@ -9,11 +9,11 @@ $CpG_{GR}$ $∼$ $β_0$ $+$ $β_{SNP} \times$ SNP $+$ $ϵ$
 
 $CpG_{GR}$ $=$ $res_{post-dex}$ $-$ $res_{baseline}$
 
-$res_(post-dex)$ $∼$ $CpG_{post-dex}$ $-$ $(β_0$  $+$  $β_1 \times$ Sex $+$ $β_2 \times$ Age $+$ $β_3 \times$ BMI $+$ $β_4 \times$ MDD $+$ $β_(5-7) \times SV_{5-7} $+$ $β_{8,9} \times PC_{1,2} $+$ $β_{10} \times SS$ $+$ $β_{SNP} \times$ SNP $+$ $ϵ)$
+$res_{post-dex}$ $∼$ $CpG_{post-dex}$ $-$ $(β_0$  $+$  $β_1 \times$ Sex $+$ $β_2 \times$ Age $+$ $β_3 \times$ BMI $+$ $β_4 \times$ MDD $+$ $β_{5-7} \times SV_{5-7}$ $+$ $β_{8,9} \times PC_{1,2} $+$ $β_{10} \times SS$ $+$ $β_{SNP} \times$ SNP $+$ $ϵ)$
 
-$res_(basline)$ $∼$ $CpG_{baseline}$ $-$ $(β_0$  $+$  $β_1 \times$ Sex $+$ $β_2 \times$ Age $+$ $β_3 \times$ BMI $+$ $β_4 \times$ MDD $+$ $β_(5-7) \times SV_{5-7} $+$ $β_{8,9} \times PC_{1,2} $+$ $β_{10} \times SS$ $+$ $β_{SNP} \times$ SNP $+$ $ϵ)$
+$res_{basline}$ $∼$ $CpG_{baseline}$ $-$ $(β_0$  $+$  $β_1 \times$ Sex $+$ $β_2 \times$ Age $+$ $β_3 \times$ BMI $+$ $β_4 \times$ MDD $+$ $β_{5-7} \times SV_{5-7}$ $+$ $β_{8,9} \times PC_{1,2} $+$ $β_{10} \times SS$ $+$ $β_{SNP} \times$ SNP $+$ $ϵ)$
 
-Since cis-regions with an extensive LD structure increase the false positive meQTLs, the Benjamini-Hochberg FDR method was applied to correct the adjusted p-value significance by using only the most significant and independent SNPs per probe. The number of independent meSNPs per cis region was identified by LD clumping the SNPs using the clump command in PLINK. Each independent SNP formed a SNP bin aggregating all other SNPs into bins by independent SNP at $r_2 > 0.2$ and distance < 1Mb, such that all SNPs within a given bin were correlated to the independent SNP, but to any other tag SNP.  The false-positive SNP-probe pairs were limited to less than 5%, applying the **FDR** $< 5%$ as statistical significance.
+Since cis-regions with an extensive LD structure increase the false positive meQTLs, the Benjamini-Hochberg FDR method was applied to correct the adjusted p-value significance by using only the most significant and independent SNPs per probe. The number of independent meSNPs per cis region was identified by LD clumping the SNPs using the clump command in PLINK. Each independent SNP formed a SNP bin aggregating all other SNPs into bins by independent SNP at $r_2$ $>$ 0.2 and distance < 1Mb, such that all SNPs within a given bin were correlated to the independent SNP, but to any other tag SNP.  The false-positive SNP-probe pairs were limited to less than 5%, applying the **FDR** as statistical significance.
 
 
 ### Folders structure
