@@ -57,6 +57,9 @@ For the methodology and scripts, please refer to [eQTM analysis](https://github.
 
 ### 6. Functional genomic annotation of differential DNAm
 
+Differential DNA methylated positions were mapped to their genomic and gene location according to Illumina’s annotation using the R package minfi. To assess the distribution of CpG sites across the genome, the number of probes was calculated and weighted by the corresponding chromosome length for each chromosome. To assess the relation of CpGs to the gene and genomic regions, the distance from all CpGs to each of their annotated genes was calculated, and the closest genes were taken. In the case of multiple regions mapped to a single CpG, the CpG was added to each region.
+
+For more details, please refer to [scripts](https://github.com/ahryho/psychoGE/tree/master/code/methylation/02_dma/01_dmp) and [results](https://github.com/ahryho/psychoGE/blob/master/code/methylation/02_dma/01_dmp/Rmds/03_dma_rslt_for_manuscript.html).
 
 ### 7. Cell type composition estimation
 
