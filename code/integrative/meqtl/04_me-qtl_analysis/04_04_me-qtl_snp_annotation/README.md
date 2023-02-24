@@ -1,4 +1,4 @@
-# Functional genomic and histone mark enrichemnts of meQTL SNPs
+# GWAS and histone mark enrichemnts of meQTL SNPs
 
 ## Histone mark enrichment analysis
 

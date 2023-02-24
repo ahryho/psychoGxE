@@ -76,15 +76,15 @@ For the methodology and scripts, please refer to the [cell-type specific analysi
 
 ### 9.  Functional enrichment analysis
 
-For the methodology and scripts, please refer to the [functional enrichment of meQTL CpGs](https://github.com/ahryho/psychoGE/tree/master/code/integrative/meqtl/04_me-qtl_analysis/04_04_me-qtl_cpg_annotation).
+For the methodology and scripts, please refer to the [functional enrichment of meQTL CpGs](https://github.com/ahryho/psychoGE/tree/master/code/integrative/meqtl/04_me-qtl_analysis/04_04_me-qtl_cpg_annotation#functional-enrichment-analysis).
 
 ### 10. Histone mark enrichment analysis
 
-For the methodology and scripts, please refer to the histone mark enrichment analysis of [meQTL CpGs](https://github.com/ahryho/psychoGE/tree/master/code/integrative/meqtl/04_me-qtl_analysis/04_04_me-qtl_cpg_annotation) and [meQTL SNPs](https://github.com/ahryho/psychoGE/tree/master/code/integrative/meqtl/04_me-qtl_analysis/04_04_me-qtl_snp_annotation).
+For the methodology and scripts, please refer to the histone mark enrichment analysis of [meQTL CpGs](https://github.com/ahryho/psychoGE/tree/master/code/integrative/meqtl/04_me-qtl_analysis/04_04_me-qtl_cpg_annotation#histone-mark-enrichment-analysis) and [meQTL SNPs](https://github.com/ahryho/psychoGE/tree/master/code/integrative/meqtl/04_me-qtl_analysis/04_04_me-qtl_snp_annotation#histone-mark-enrichment-analysis).
 
 ### 11. Genome-wide association studies (GWAS) enrichment analysis
 
-For the methodology and scripts, please refer to the [GWAS enrichment analysis](https://github.com/ahryho/psychoGE/tree/master/code/integrative/meqtl/04_me-qtl_analysis/04_04_me-qtl_snp_annotation).
+For the methodology and scripts, please refer to the [GWAS enrichment analysis](https://github.com/ahryho/psychoGE/tree/master/code/integrative/meqtl/04_me-qtl_analysis/04_04_me-qtl_snp_annotation#gwas-enrichment-analysis).
 
 ### 12. Phenome-wide association studies (PheWAS) analysis
 
