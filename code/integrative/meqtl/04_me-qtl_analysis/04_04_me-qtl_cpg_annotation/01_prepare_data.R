@@ -5,6 +5,7 @@ source("~/mpip/projects/dex-stim-human-array/code/integrative/util.R", chdir = T
 library(data.table)
 library(dplyr)
 
+library(IlluminaHumanMethylationEPICanno.ilm10b4.hg19)
 library(TxDb.Hsapiens.UCSC.hg19.knownGene)
 library(ChIPseeker)
 library(org.Hs.eg.db)
@@ -26,13 +27,11 @@ col.names <-  c("SNP", "CpG_ID", "beta", "t-stat", "p-value", "fdr")
 ind.meqtl.veh.df   <- fread(meqtl.veh.fn)
 ind.meqtl.delta.df <- fread(meqtl.delta.fn)
 
-# ind.meqtl.df <- rbind(ind.meqtl.dex.df, ind.meqtl.veh.df, ind.meqtl.delta.df)
 
 # 2. Save Illumina annotation
 
-# library(IlluminaHumanMethylationEPICanno.ilm10b4.hg19)
-# anno.epic <- getAnnotation(IlluminaHumanMethylationEPICanno.ilm10b4.hg19)
-# saveRDS(anno.epic, "~/bio/code/mpip/dex-stim-human-array/data/annotation/IlluminaHumanMethylationEPICanno-ilm10b4-hg19.rds")
+anno.epic <- getAnnotation(IlluminaHumanMethylationEPICanno.ilm10b4.hg19)
+saveRDS(anno.epic, "~/bio/code/mpip/dex-stim-human-array/data/annotation/IlluminaHumanMethylationEPICanno-ilm10b4-hg19.rds")
 
 anno.epic <- readRDS( "/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/data/annotation/IlluminaHumanMethylationEPICanno-ilm10b4-hg19.rds")
 
@@ -158,9 +157,6 @@ meqtls.cpg.annotated <- annotate_regions(
   annotations = annotations,
   ignore.strand = TRUE,
   quiet = FALSE)
-
-# print(delta.meqtls.cpg.annotated)
-# plot_annotation(annotated_regions = delta.meqtls.cpg.annotated)
 
 meqtls.cpg.annotated.df <- data.frame(meqtls.cpg.annotated) %>% setDT()
 

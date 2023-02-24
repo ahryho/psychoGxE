@@ -47,7 +47,6 @@ system("plink --bfile dex_geno_imputed_maf --freq --out dex_geno_imputed_maf_maf
 
 meqtls.snp.lst            <- ind.meqtl.delta.df$SNP %>% unique()
 meqtls.snp.delta.coord.df <- snp.loc[SNP %in% meqtls.snp.lst, ]
-# meqtls.snp.delta.coord.df <- left_join(ind.meqtl.delta.df, snp.loc)
 
 input <- meqtls.snp.delta.coord.df
 
@@ -155,11 +154,6 @@ saveRDS(chromhmm.brain.states, "/binder/mgp/workspace/2020_DexStim_Array_Human/d
 ####
 
 AnnotateChromHMM <- function(snp.coord.range, chromhmm.all.states, out){
-  
-  # x <-distanceToNearest(own, chromhmm.blood.states)
-  # sum(overlapsAny(delta.snp.coord.range, own))
-  # sum(distanceToNearest(delta.snp.coord.range, chromhmm.blood.states)@elementMetadata@listData$distance == 0)
-  # table(x@elementMetadata@listData$distance == 0)
   
   meqtls.snp.chromhmm.annotated <- annotate_regions(
     regions = snp.coord.range,

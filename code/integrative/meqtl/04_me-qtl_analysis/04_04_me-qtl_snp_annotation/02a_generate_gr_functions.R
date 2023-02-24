@@ -6,7 +6,7 @@ library(IRanges)
 library(arules)
 library(reshape2)
 
-#' Function to generate an eQTL GRanges object (with MAF bins)
+#' Function to generate an meQTL GRanges object (with MAF bins)
 #'
 #' @param input Input data of which an GRanges object should be made of (e.g. eQTL hits)
 #' @param mdata Merging data (e.g. Background SNPs)

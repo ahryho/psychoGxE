@@ -1,11 +1,3 @@
-# tissue <- "blood"
-# 
-# enrichment.rslts.fn <- paste0(out.dir.pre, "meqtl_snps_chromHMM_", tissue, "/", list.files(paste0(out.dir.pre, "meqtl_snps_chromHMM_", tissue)))
-# 
-# pptx.template <- read_pptx("~/bio/code/mpip/dex-stim-human-array/output/plots/enrichment/meqtl_snp_chromHMM_enrichment.pptx")
-# pptx.out      <- paste0("~/bio/code/mpip/dex-stim-human-array/output/plots/enrichment/meqtl_snp_chromHMM_", tissue, "_enrichment.pptx")
-# 
-
 library(officer)
 
 #' Function to save enrichment plots to .pptx file
