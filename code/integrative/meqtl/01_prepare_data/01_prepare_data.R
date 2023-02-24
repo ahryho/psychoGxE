@@ -10,10 +10,6 @@ setwd("/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/data/
 output.eqtm.pre <- "/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/data/integrative/matrixEQTL/"
 output.eqtm.pre <- "integrative/matrixEQTL/"
 
-# src.pheno.data.pre <- "~/bio/code/mpip/dex-stim-human-array/data/pheno/"
-# src.snps.data.pre  <-"~/bio/datasets/snps/"
-# src.pheno.data.pre <- "/binder/mgp/datasets/2020_DexStim_Array_Human/pheno/"
-
 # Load data
 
 db_gene_cg   <- fread("mapping/mapping_cpg_gene_ensg_full.csv")
@@ -265,8 +261,6 @@ fwrite(bio.mtrx.t,
        paste0(output.eqtm.pre, "bio_mtrx_methyl_dex.csv"),
        quote = F, row.names = F, sep = ";")
 
-# bio.mtrx <- fread(paste0(output.eqtm.pre, "bio_mtrx_methyl.csv"))
-
 # DELTA
 cov.list <- c()
 
@@ -286,7 +280,6 @@ fwrite(bio.mtrx.t,
 
 
 # Bio layer for eQTMs
-# 
 
 cov.list <- c("DNA_ID",
               "Sex", "Status", "Age", "BMI_D1", "DNAm_SmokingScore",
