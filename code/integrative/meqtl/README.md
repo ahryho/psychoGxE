@@ -5,13 +5,11 @@ $CpG_{baseline}$ $∼$ β_0$  $+$  $β_1 \times$ Sex $+$ $β_2 \times$ Age $+$ $
 
 To calculate GR-response cis-meQTLs, a linear model of the change on DNA methylation was constructed between baseline and GR-response using residuals from the linear regression and adjusting for the same covariates as for baseline meQTLs. 
 
-$CpG_{GR}$ $∼$ $β_0$ $+$ $β_{SNP} \times$ SNP $+$ $ϵ$
-
 $CpG_{GR}$ $=$ $res_{post-dex}$ $-$ $res_{baseline}$
 
-$res_{post-dex}$ $∼$ $CpG_{post-dex}$ $-$ $(β_0$  $+$  $β_1 \times$ Sex $+$ $β_2 \times$ Age $+$ $β_3 \times$ BMI $+$ $β_4 \times$ MDD $+$ $β_{5-7} \times SV_{5-7}$ $+$ $β_{8,9} \times PC_{1,2} $+$ $β_{10} \times SS$ $+$ $β_{SNP} \times$ SNP $+$ $ϵ)$
+$res_{post-dex}$ $∼$ $CpG_{post-dex}$ $-$ $(β_0$  $+$  $β_1 \times$ Sex $+$ $β_2 \times$ Age $+$ $β_3 \times$ BMI $+$ $β_4 \times$ MDD $+$ $β_{5-7} \times SV_{5-7}$ $+$ $β_{8,9} \times PC_{1,2}$ $+$ $β_{10} \times SS$ $+$ $β_{SNP} \times$ SNP $+$ $ϵ)$
 
-$res_{basline}$ $∼$ $CpG_{baseline}$ $-$ $(β_0$  $+$  $β_1 \times$ Sex $+$ $β_2 \times$ Age $+$ $β_3 \times$ BMI $+$ $β_4 \times$ MDD $+$ $β_{5-7} \times SV_{5-7}$ $+$ $β_{8,9} \times PC_{1,2} $+$ $β_{10} \times SS$ $+$ $β_{SNP} \times$ SNP $+$ $ϵ)$
+$res_{basline}$ $∼$ $CpG_{baseline}$ $-$ $(β_0$  $+$  $β_1 \times$ Sex $+$ $β_2 \times$ Age $+$ $β_3 \times$ BMI $+$ $β_4 \times$ MDD $+$ $β_{5-7} \times SV_{5-7}$ $+$ $β_{8,9} \times PC_{1,2}$ $+$ $β_{10} \times SS$ $+$ $β_{SNP} \times$ SNP $+$ $ϵ)$
 
 Since cis-regions with an extensive LD structure increase the false positive meQTLs, the Benjamini-Hochberg FDR method was applied to correct the adjusted p-value significance by using only the most significant and independent SNPs per probe. The number of independent meSNPs per cis region was identified by LD clumping the SNPs using the clump command in PLINK. Each independent SNP formed a SNP bin aggregating all other SNPs into bins by independent SNP at $r_2$ $>$ 0.2 and distance < 1Mb, such that all SNPs within a given bin were correlated to the independent SNP, but to any other tag SNP.  The false-positive SNP-probe pairs were limited to less than 5%, applying the **FDR** as statistical significance.
 
@@ -19,13 +17,11 @@ Since cis-regions with an extensive LD structure increase the false positive meQ
 ### Folders structure
 
 - `00_prepare the data`: the script for phenotype data to identify differentially methylated regions (DMRs)
-- `01_tca`: Tensor Composition Analysis usig the R package TCA
-- `02_lm_vif`: script for checking for multicollinarity between blood cell types using VIF
-- `02a_lm`: cell type-specificity on DMAm using lm excluding the cell type with the highest VIF
-- `02b_lm`: cell type-specificity on DMAm using lm including all cell types
-- `03_get_significant`: get statistically signififcant at FDR < 0.05 associations, and extract assocaition with meQTL CpGs
-- `04_epistress_score`: epistress score calculation for Sarah Merrill from the University of British Columbia 
+- `02_get_distances_between_cpgs_ensg`: Tensor Composition Analysis usig the R package TCA
+- `03_run_qtl_analysis`:
+- `04_me-qtl_analysis`: cell type-specificity on DMAm using lm excluding the cell type with the highest VIF
 
 ### Results
 
-The results are stored on the MPIP computational cluster: `/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/integrative/cell_type_enrichment/`
+The results are stored on the MPIP computational cluster: `/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/integrative/matrixEQTL/meqtls/`
+
