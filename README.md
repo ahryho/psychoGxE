@@ -70,7 +70,7 @@ For more details, please refer to [methodology](https://github.com/ahryho/dex-st
 
 ### 8. Cell-type specific analysis
 
-For the methodology and scripts, please refer to [cell-type specific analysis](https://github.com/ahryho/psychoGE/tree/master/code/integrative/meqtl/05_cell_type_enrichment).
+For the methodology and scripts, please refer to [cell-type specific analysis](https://github.com/ahryho/psychoGE/tree/master/code/integrative/cell_type_specific_analysis).
 
 ### 9.  Functional enrichment analysis
 
