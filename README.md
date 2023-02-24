@@ -1,5 +1,7 @@
 ## **psychoGE:** joint impact of environmental and genetic determinants on the aetiology of stress-related psychiatric disorders
 
+_by Anastasiia Hryhorzhevska_
+
 The main objectives of the study are to explore the genetic variants that moderate stress-induced environmental patterns in an immune cell-type-specific manner; and  assess how these epigenetic, i.e. environmental, and genetic biomarkers relate to the risk for psychiatric disorders.
 
 ## Data
@@ -70,15 +72,18 @@ For more details, please refer to [methodology](https://github.com/ahryho/dex-st
 
 ### 8. Cell-type specific analysis
 
-For the methodology and scripts, please refer to [cell-type specific analysis](https://github.com/ahryho/psychoGE/tree/master/code/integrative/cell_type_specific_analysis).
+For the methodology and scripts, please refer to the [cell-type specific analysis](https://github.com/ahryho/psychoGE/tree/master/code/integrative/cell_type_specific_analysis).
 
 ### 9.  Functional enrichment analysis
 
+For the methodology and scripts, please refer to the [functional enrichment of meQTL CpGs](https://github.com/ahryho/psychoGE/tree/master/code/integrative/meqtl/04_me-qtl_analysis/04_04_me-qtl_cpg_annotation).
 
 ### 10. Histone mark enrichment analysis
 
+For the methodology and scripts, please refer to the histone mark enrichment analysis of [meQTL CpGs](https://github.com/ahryho/psychoGE/tree/master/code/integrative/meqtl/04_me-qtl_analysis/04_04_me-qtl_cpg_annotation) and [meQTL SNPs](https://github.com/ahryho/psychoGE/tree/master/code/integrative/meqtl/04_me-qtl_analysis/04_04_me-qtl_snp_annotation).
 
 ### 11. Genome-wide association studies (GWAS) enrichment analysis
 
+For the methodology and scripts, please refer to the [GWAS enrichment analysis](https://github.com/ahryho/psychoGE/tree/master/code/integrative/meqtl/04_me-qtl_analysis/04_04_me-qtl_snp_annotation).
 
 ### 12. Phenome-wide association studies (PheWAS) analysis
