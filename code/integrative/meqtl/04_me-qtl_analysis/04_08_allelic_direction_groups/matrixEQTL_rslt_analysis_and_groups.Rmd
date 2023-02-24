@@ -14,7 +14,6 @@ library(ggplot2)
 
 ```{r, eval = F, warnings = F}
 out.dir.pre       <- "/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/integrative/matrixEQTL/"
-# out.dir.pre       <- "~/bio/code/mpip/dex-stim-human-array/output/data/integrative/matrixEQTL/meqtls/"
 
 col.names         <- c("SNP", "CpG_ID", "beta", "t-stat", "p-value", "FDR")
 
