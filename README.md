@@ -25,7 +25,9 @@ Data are stored on the MPIP computational cluster:
 
 - DNAm: `/binder/mgp/datasets/2020_DexStim_Array_Human/methylation`
 - Gene-expression: `/binder/mgp/datasets/2020_DexStim_Array_Human/gene_expression`
-- Genotype: `/binder/mgp/datasets/2020_DexStim_Array_Human/snps`
+- Genotype: 
+  - initial: `/binder/mgp/datasets/2020_DexStim_Array_Human/snps`
+  - imputed: `/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/data/snps/final_imputed_qc_snps/filtered_196_samples`
 - Phenotype: `/binder/mgp/datasets/2020_DexStim_Array_Human/pheno`
   
 - Additional data (annotation, GWAS statistics etc): `/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/data`
