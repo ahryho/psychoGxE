@@ -87,3 +87,5 @@ For the methodology and scripts, please refer to the histone mark enrichment ana
 For the methodology and scripts, please refer to the [GWAS enrichment analysis](https://github.com/ahryho/psychoGE/tree/master/code/integrative/meqtl/04_me-qtl_analysis/04_04_me-qtl_snp_annotation).
 
 ### 12. Phenome-wide association studies (PheWAS) analysis
+
+For the methodology and scripts, please refer to the [GWAS enrichment analysis](https://github.com/ahryho/psychoGE/tree/master/code/phewas).

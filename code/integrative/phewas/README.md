@@ -1,4 +1,4 @@
-# PheWAS analysis
+# Phenome-wide association studies (PheWAS) analysis
 
 To investigate whether there is a causal relationship between the cell-type specific GR-meSNPs and psychiatric traits, a two-sample MR approach was employed using the R package TwoSampleMR.
 
