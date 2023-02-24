@@ -19,6 +19,25 @@ The SNP-CpG pairs with most PheWAS associations in each phenotype category, and 
 
 ## Folder structure
 
+- `00_functions`: functions to extract and plot to snp hits and their categories
+- `01_outcome_prep_ieu`: outcome selection using IEU GWAS Catalog. Script prepared by Nils Kappelmann
+- `02_exposure_prep`: exposure data preparation
+- `03_data_harmonisation`: data harmonisation
+- `04_mr_analysis`: MR analysis
+- `05_mr_result_processing`: process MR results obtained at the previous step
+- `06a_mr_result_visualisation_8_gr`: MR results visualisation for 8 cell-type specific groups
+- `06b_mr_result_visualisation_2_gr`: MR results visualisation for 2 cell-type specific groups
+
+## Data
+
+The exposure data are store on the MPIP computational cluster: `/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/integrative/matrixEQTL/meqtls/with_missingness/for_phewas/cpg_level/`.
+
+The IEU outcome list and trait annotation table are stored on the MPIP computational cluster: `/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/data/public_data/PheWAS`.
+
+## Results
+
+The results are stored on the MPIP computational cluster: `/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/integrative/phewas`
+
 ## References
 
 1. Zhang, Y., An, L., Yue, F. & Hardison, R. C. Jointly characterizing epigenetic dynamics across multiple human cell types. Nucleic Acids Res 44, 6721–6731 (2016).
