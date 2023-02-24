@@ -24,6 +24,12 @@ Since cis-regions with an extensive LD structure increase the false positive meQ
 - `02_get_distances_between_cpgs_ensg`: calculation distances between CpGs and ENSGs
 - `03_run_qtl_analysis`: meQTLs calculation using MatrixEQTL package
 - `04_me-qtl_analysis`: 
+  - `04_01_get_clumped_meqtl_rw`: region-wise clumping of meQTLs
+  - `04_02_most_likely_genotype`: analysis of meQTL associations using SNPs in which missing values got replaced with the most likely genotype. The folder contains the analysis of both primary and clumped associations, as well as functional enrichment, chromHMM, GWAS enrichemnt analyses of meQTL CpGs and meQTL SNPs. In addition, it also contains analysis of cell-type specific meQTL CpGs
+  - `04_05_overlap_mesnp_with_public_data`: comparison of meQTL SNPs to GR-eQTL SNPs from Moore et al.
+  - `04_06_with_missigness`: analysis of meQTL associations using SNPs with missing genotypes. The folder contains the analysis of both primary and clumped associations, as well as functional enrichment, chromHMM, GWAS enrichemnt analyses of meQTL CpGs and meQTL SNPs. In addition, it also contains analysis of cell-type specific meQTL CpGs
+  - `04_07_comparison_between_meqtl_approaches`: comparison between meQTL obtained by using different sets of SNPs: (a) with missing values, (b) probablities, (c) most linkely genotype
+  - `04_08_allelic_direction_groups`: analysis of meQTL groups. Groups were created based on the genotype allelic direction.
 
 ### Results
 
