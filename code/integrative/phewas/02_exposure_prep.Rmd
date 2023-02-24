@@ -64,11 +64,11 @@ library(TwoSampleMR) # remotes::install_github("MRCIEU/TwoSampleMR")
 ## Load data
 
 ```{r innclude}
-# dir.pre     <-"/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/"
-# out.dir.pre <- "/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/integrative/matrixEQTL/meqtls/with_missingness/for_phewas/cpg_level/"
+dir.pre     <-"/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/"
+out.dir.pre <- "/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/integrative/matrixEQTL/meqtls/with_missingness/for_phewas/cpg_level/"
 
-dir.pre     <-"~/bio/code/mpip/dex-stim-human-array/"
-out.dir.pre <- paste0(dir.pre, "/output/data/integrative/matrixEQTL/meqtls/with_missingness/for_phewas/cpg_level/")
+# dir.pre     <-"~/bio/code/mpip/dex-stim-human-array/"
+# out.dir.pre <- paste0(dir.pre, "/output/data/integrative/matrixEQTL/meqtls/with_missingness/for_phewas/cpg_level/")
 
 meqtls.for.phewas.lst <- list.files(paste0(out.dir.pre), full.names = T)
 
