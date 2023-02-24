@@ -50,6 +50,7 @@ For the methodology and scripts, please refer to [dDNAm](https://github.com/ahry
 
 ### 4. Methylation quantitative trait loci (meQTL) analysis
 
+For the methodology and scripts, please refer to the [meqtl folder](https://github.com/ahryho/psychoGE/tree/master/code/integrative/meqtl).
 
 ### 5. Expression quantitative trait methylation (eQTM) analysis
 
