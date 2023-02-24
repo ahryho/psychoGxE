@@ -1,0 +1,5 @@
+# Histone mark enrichment analysis
+To identify whether GR-response meQTL SNPs are enriched in specific chromatin states, the 20-state annotation inferred by the integrative and discriminative epigenome annotation system (IDEAS) from 18 blood and T- & B-cell cell tissue group (n = 18 cell lines) was used.  The position-based overlap of the GR-response meQTL SNPs and chromatin states compared the overlap observed with 1000 equal-sized sets of baseline meQTL SNPs. The enrichment analysis was carried out adjusting for MAF.
+
+# GWAS enrichment analysis
+Concerning enrichment for GWAS hits, the independent GR-response cis-meQTL SNPs were matched to GWAS variants based on chromosome and position (hg19). The full summary statistics were derived from the respective publication to check for enrichment for nominal significant GWAS hits with regard to the independent baseline cis-meQTL SNPs. The enrichment meQTL SNPs and GWAS risk-SNPs were tested compared to 1000 MAF-matched independent meSNP sets. The Fisher-test empirical p-value $\leq$ 0.05 was used to define the significant differences. A total of 1,000 permutations were carried out per GWAS.
