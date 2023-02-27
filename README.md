@@ -3,7 +3,9 @@
 _by Anastasiia Hryhorzhevska_
 
 [1. Objectives](#objectives)
+
 [2. Data](#data)
+
 [3. Analysis](#analysis)
   - [1. DNA methhylation (DNAm) profiling](#1-dna-methhylation-dnam-profiling)
   - [2. Smoking score estimation](#2-smoking-score-estimation)
@@ -17,6 +19,7 @@ _by Anastasiia Hryhorzhevska_
   - [10. Histone mark enrichment analysis](#10-histone-mark-enrichment-analysis)
   - [11. Genome-wide association studies (GWAS) enrichment analysis](#11-genome-wide-association-studies-gwas-enrichment-analysis)
   - [12. Phenome-wide association studies (PheWAS) analysis](#12-phenome-wide-association-studies-phewas-analysis)
+
 [4. Results and additional information](#results-and-additional-information)
 
 ## Objectives
