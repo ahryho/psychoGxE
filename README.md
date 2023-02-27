@@ -6,9 +6,9 @@ _by Anastasiia Hryhorzhevska_
 
 [2. Data](#data)
 
-3. [Analysis](#analysis)
-    3.1. [DNAm profiling](#1-dna-methhylation-dnam-profiling)
-    3.2. [Smoking score](#2-smoking-score-estimation)
+[3. Analysis](#analysis)
+  [3.1. DNAm profiling](#1-dna-methhylation-dnam-profiling)
+  [3.2. Smoking score](#2-smoking-score-estimation)
 
 
 [4. Results and aditional information](#results-and-additional-information)
