@@ -2,7 +2,7 @@
 
 _by Anastasiia Hryhorzhevska_
 
-[1. Objectoves](#objectives)
+[1. Objectives](#objectives)
 
 [2. Data](#data)
 
