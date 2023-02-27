@@ -8,7 +8,7 @@ _by Anastasiia Hryhorzhevska_
 
 [3. Analysis](#analysis)
 
-  - [DNAm profiling](#1-dna-methhylation-dnam-profiling)
+   [DNAm profiling](#1-dna-methhylation-dnam-profiling)
 
 [4. Results and aditional information](#results-and-additional-information)
 
