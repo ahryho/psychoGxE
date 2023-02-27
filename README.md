@@ -46,7 +46,7 @@ Data are stored on the MPIP computational cluster:
 
 The follwoing figure displays a flow of the data collection and statistical analyses outlined below.
 
-![workflow](https://github.com/ahryho/psychoGE/blob/master/materials/figures/dex-stim-workflow.png)
+![workflow](https://github.com/ahryho/psychoGE/blob/master/materials/figures/dex-stim-workflow.jpg)
 
 The analysis includes the follwong steps:
 
