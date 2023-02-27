@@ -8,6 +8,8 @@ _by Anastasiia Hryhorzhevska_
 
 [3. Analysis](#analysis)
 
+  [3.1. DNAm profiling](#1-dna-methhylation-dnam-profiling)
+
 [4. Results and aditional information](#results-and-additional-information)
 
 ## Objectives
