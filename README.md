@@ -2,16 +2,23 @@
 
 _by Anastasiia Hryhorzhevska_
 
-[1. Objectives](#objectives)
-
-[2. Data](#data)
-
-[3. Analysis](#analysis)
-  - [DNAm profiling](#1-dna-methhylation-dnam-profiling)
-  - [Smoking score](#2-smoking-score-estimation)
-
-
-[4. Results and aditional information](#results-and-additional-information)
+- [**psychoGE:** joint impact of environmental and genetic determinants on the aetiology of stress-related psychiatric disorders](#psychoge-joint-impact-of-environmental-and-genetic-determinants-on-the-aetiology-of-stress-related-psychiatric-disorders)
+- [Objectives](#objectives)
+- [Data](#data)
+- [Analysis](#analysis)
+  - [1. DNA methhylation (DNAm) profiling](#1-dna-methhylation-dnam-profiling)
+  - [2. Smoking score estimation](#2-smoking-score-estimation)
+  - [3. Differential DNA methylation analysis](#3-differential-dna-methylation-analysis)
+  - [4. Methylation quantitative trait loci (meQTL) analysis](#4-methylation-quantitative-trait-loci-meqtl-analysis)
+  - [5. Expression quantitative trait methylation (eQTM) analysis](#5-expression-quantitative-trait-methylation-eqtm-analysis)
+  - [6. Functional genomic annotation of differential DNAm](#6-functional-genomic-annotation-of-differential-dnam)
+  - [7. Cell type composition estimation](#7-cell-type-composition-estimation)
+  - [8. Cell-type specific analysis](#8-cell-type-specific-analysis)
+  - [9. Functional enrichment analysis](#9-functional-enrichment-analysis)
+  - [10. Histone mark enrichment analysis](#10-histone-mark-enrichment-analysis)
+  - [11. Genome-wide association studies (GWAS) enrichment analysis](#11-genome-wide-association-studies-gwas-enrichment-analysis)
+  - [12. Phenome-wide association studies (PheWAS) analysis](#12-phenome-wide-association-studies-phewas-analysis)
+- [Results and additional information](#results-and-additional-information)
 
 ## Objectives
 
@@ -91,7 +98,7 @@ For more details, please refer to [methodology](https://github.com/ahryho/dex-st
 
 For the methodology and scripts, please refer to the [cell-type specific analysis](https://github.com/ahryho/psychoGE/tree/master/code/integrative/cell_type_specific_analysis).
 
-### 9.  Functional enrichment analysis
+### 9. Functional enrichment analysis
 
 For the methodology and scripts, please refer to the [functional enrichment of meQTL CpGs](https://github.com/ahryho/psychoGE/tree/master/code/integrative/meqtl/04_me-qtl_analysis/04_04_me-qtl_cpg_annotation#functional-enrichment-analysis).
 
