@@ -2,13 +2,15 @@
 
 _by Anastasiia Hryhorzhevska_
 
-[1. Brief introduction to ISNs](#brief-introduction-to-isns)
+[1. Objectoves](#objectives)
 
-[2. Input data](#input-data)
+[2. Data](#data)
 
-[3. Research questions](#research-questions)
+[3. Analysis](#analysis)
 
 [4. Results and aditional information](#results-and-additional-information)
+
+## Objectives
 
 The main objectives of the study are to explore the genetic variants that moderate stress-induced environmental patterns in an immune cell-type-specific manner; and  assess how these epigenetic, i.e. environmental, and genetic biomarkers relate to the risk for psychiatric disorders.
 
@@ -44,7 +46,7 @@ Data are stored on the MPIP computational cluster:
 
 ## Analysis
 
-The follwoing figure displays a flow of the data collection and statistical analyses outlined below.
+The follwoing figure displays a flow of the data collection and statistical analyses outlined below:
 
 ![workflow](https://github.com/ahryho/psychoGE/blob/master/materials/figures/dex-stim-workflow.jpg)
 
