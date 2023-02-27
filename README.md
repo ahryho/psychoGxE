@@ -2,7 +2,6 @@
 
 _by Anastasiia Hryhorzhevska_
 
-- [**psychoGE:** joint impact of environmental and genetic determinants on the aetiology of stress-related psychiatric disorders](#psychoge-joint-impact-of-environmental-and-genetic-determinants-on-the-aetiology-of-stress-related-psychiatric-disorders)
 - [Objectives](#objectives)
 - [Data](#data)
 - [Analysis](#analysis)
