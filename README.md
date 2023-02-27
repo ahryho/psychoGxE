@@ -2,10 +2,9 @@
 
 _by Anastasiia Hryhorzhevska_
 
-- [**psychoGE:** joint impact of environmental and genetic determinants on the aetiology of stress-related psychiatric disorders](#psychoge-joint-impact-of-environmental-and-genetic-determinants-on-the-aetiology-of-stress-related-psychiatric-disorders)
-- [Objectives](#objectives)
-- [Data](#data)
-- [Analysis](#analysis)
+[1. Objectives](#objectives)
+[2. Data](#data)
+[3. Analysis](#analysis)
   - [1. DNA methhylation (DNAm) profiling](#1-dna-methhylation-dnam-profiling)
   - [2. Smoking score estimation](#2-smoking-score-estimation)
   - [3. Differential DNA methylation analysis](#3-differential-dna-methylation-analysis)
@@ -18,7 +17,7 @@ _by Anastasiia Hryhorzhevska_
   - [10. Histone mark enrichment analysis](#10-histone-mark-enrichment-analysis)
   - [11. Genome-wide association studies (GWAS) enrichment analysis](#11-genome-wide-association-studies-gwas-enrichment-analysis)
   - [12. Phenome-wide association studies (PheWAS) analysis](#12-phenome-wide-association-studies-phewas-analysis)
-- [Results and additional information](#results-and-additional-information)
+[4. Results and additional information](#results-and-additional-information)
 
 ## Objectives
 
