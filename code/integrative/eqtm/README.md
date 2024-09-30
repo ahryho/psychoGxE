@@ -21,4 +21,4 @@ The eQTM analysis aims to investigate whether the DNA methylation influences gen
 
 ### Results
 
-The results are stored on the MPIP computational cluster: `/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/integrative/matrixEQTL/eqtms`
+The results are stored on the MPIP computational cluster.
