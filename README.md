@@ -1,4 +1,4 @@
-## **psychoGE:** joint impact of environmental and genetic determinants on the aetiology of stress-related psychiatric disorders
+## **psychoGxE:** joint impact of environmental and genetic determinants on the aetiology of stress-related psychiatric disorders
 
 - [Objectives](#objectives)
 - [Data](#data)
@@ -45,7 +45,7 @@ Data are stored on the MPIP computational cluster:
 
 The follwoing figure displays a flow of the data collection and statistical analyses outlined below:
 
-![workflow](https://github.com/ahryho/psychoGE/blob/master/materials/figures/dex-stim-workflow.jpg)
+![workflow](https://github.com/ahryho/psychoGxE/blob/master/materials/figures/dex-stim-workflow.jpg)
 
 The analysis includes the follwong steps:
 
@@ -59,21 +59,21 @@ For the methodology and scripts, please refer to [smoking score calculation](htt
 
 ### 3. Differential DNA methylation analysis
 
-For the methodology and scripts, please refer to [dDNAm](https://github.com/ahryho/psychoGE/tree/master/code/methylation/).
+For the methodology and scripts, please refer to [dDNAm](https://github.com/ahryho/psychogxe/tree/master/code/methylation/).
 
 ### 4. Methylation quantitative trait loci (meQTL) analysis
 
-For the methodology and scripts, please refer to the [meqtl folder](https://github.com/ahryho/psychoGE/tree/master/code/integrative/meqtl).
+For the methodology and scripts, please refer to the [meqtl folder](https://github.com/ahryho/psychoGxE/tree/master/code/integrative/meqtl).
 
 ### 5. Expression quantitative trait methylation (eQTM) analysis
 
-For the methodology and scripts, please refer to [eQTM analysis](https://github.com/ahryho/psychoGE/tree/master/code/integrative/eqtm).
+For the methodology and scripts, please refer to [eQTM analysis](https://github.com/ahryho/psychoGxE/tree/master/code/integrative/eqtm).
 
 ### 6. Functional genomic annotation of differential DNAm
 
 Differential DNA methylated positions were mapped to their genomic and gene location according to Illumina’s annotation using the R package minfi. To assess the distribution of CpG sites across the genome, the number of probes was calculated and weighted by the corresponding chromosome length for each chromosome. To assess the relation of CpGs to the gene and genomic regions, the distance from all CpGs to each of their annotated genes was calculated, and the closest genes were taken. In the case of multiple regions mapped to a single CpG, the CpG was added to each region.
 
-For more details, please refer to [scripts](https://github.com/ahryho/psychoGE/tree/master/code/methylation/02_dma/01_dmp) and [results](https://github.com/ahryho/psychoGE/blob/master/code/methylation/02_dma/01_dmp/Rmds/03_dma_rslt_for_manuscript.html).
+For more details, please refer to [scripts](https://github.com/ahryho/psychoGxE/tree/master/code/methylation/02_dma/01_dmp) and [results](https://github.com/ahryho/psychoGxE/blob/master/code/methylation/02_dma/01_dmp/Rmds/03_dma_rslt_for_manuscript.html).
 
 ### 7. Cell type composition estimation
 
@@ -83,23 +83,23 @@ For more details, please refer to [methodology](https://github.com/ahryho/dex-st
 
 ### 8. Cell-type specific analysis
 
-For the methodology and scripts, please refer to the [cell-type specific analysis](https://github.com/ahryho/psychoGE/tree/master/code/integrative/cell_type_specific_analysis).
+For the methodology and scripts, please refer to the [cell-type specific analysis](https://github.com/ahryho/psychoGxE/tree/master/code/integrative/cell_type_specific_analysis).
 
 ### 9. Functional enrichment analysis
 
-For the methodology and scripts, please refer to the [functional enrichment of meQTL CpGs](https://github.com/ahryho/psychoGE/tree/master/code/integrative/meqtl/04_me-qtl_analysis/04_04_me-qtl_cpg_annotation#functional-enrichment-analysis).
+For the methodology and scripts, please refer to the [functional enrichment of meQTL CpGs](https://github.com/ahryho/psychoGxE/tree/master/code/integrative/meqtl/04_me-qtl_analysis/04_04_me-qtl_cpg_annotation#functional-enrichment-analysis).
 
 ### 10. Histone mark enrichment analysis
 
-For the methodology and scripts, please refer to the histone mark enrichment analysis of [meQTL CpGs](https://github.com/ahryho/psychoGE/tree/master/code/integrative/meqtl/04_me-qtl_analysis/04_04_me-qtl_cpg_annotation#histone-mark-enrichment-analysis) and [meQTL SNPs](https://github.com/ahryho/psychoGE/tree/master/code/integrative/meqtl/04_me-qtl_analysis/04_04_me-qtl_snp_annotation#histone-mark-enrichment-analysis).
+For the methodology and scripts, please refer to the histone mark enrichment analysis of [meQTL CpGs](https://github.com/ahryho/psychoGxE/tree/master/code/integrative/meqtl/04_me-qtl_analysis/04_04_me-qtl_cpg_annotation#histone-mark-enrichment-analysis) and [meQTL SNPs](https://github.com/ahryho/psychoGxE/tree/master/code/integrative/meqtl/04_me-qtl_analysis/04_04_me-qtl_snp_annotation#histone-mark-enrichment-analysis).
 
 ### 11. Genome-wide association studies (GWAS) enrichment analysis
 
-For the methodology and scripts, please refer to the [GWAS enrichment analysis](https://github.com/ahryho/psychoGE/tree/master/code/integrative/meqtl/04_me-qtl_analysis/04_04_me-qtl_snp_annotation#gwas-enrichment-analysis).
+For the methodology and scripts, please refer to the [GWAS enrichment analysis](https://github.com/ahryho/psychoGxE/tree/master/code/integrative/meqtl/04_me-qtl_analysis/04_04_me-qtl_snp_annotation#gwas-enrichment-analysis).
 
 ### 12. Phenome-wide association studies (PheWAS) analysis
 
-For the methodology and scripts, please refer to the [PheWAS analysis](https://github.com/ahryho/psychoGE/tree/master/code/integrative/phewas).
+For the methodology and scripts, please refer to the [PheWAS analysis](https://github.com/ahryho/psychoGxE/tree/master/code/integrative/phewas).
 
 
 ## Results and additional information
