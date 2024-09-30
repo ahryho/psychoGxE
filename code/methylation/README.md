@@ -22,4 +22,4 @@ To identify the number of significant GR-response differentially methylated posi
 
 ### Results
 
-The results are stored on the MPIP computational cluster: `/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/methylation/`
+The results are stored on the MPIP computational cluster.
