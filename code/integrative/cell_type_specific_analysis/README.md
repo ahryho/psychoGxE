@@ -25,4 +25,4 @@ To assess whether the meQTL CpGs are cell-type-specific, the significant baselin
 
 ### Results
 
-The results are stored on the MPIP computational cluster: `/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/integrative/cell_type_enrichment/`
+The results are stored on the MPIP computational cluster.
