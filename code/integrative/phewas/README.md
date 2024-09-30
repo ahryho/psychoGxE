@@ -30,9 +30,7 @@ The SNP-CpG pairs with most PheWAS associations in each phenotype category, and 
 
 ## Data
 
-The exposure data are store on the MPIP computational cluster: `/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/integrative/matrixEQTL/meqtls/with_missingness/for_phewas/cpg_level/`.
-
-The IEU outcome list and trait annotation table are stored on the MPIP computational cluster: `/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/data/public_data/PheWAS`.
+The exposure data, the IEU outcome list and trait annotation tables are store on the MPIP computational cluster.
 
 ## Results
 
