@@ -22,12 +22,7 @@ Concerning enrichment for GWAS hits, the independent GR-response cis-meQTL SNPs 
 
 ## Results
 
-The results are stored on the MPIP computational cluster: 
-
-- annotation: `/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/integrative/matrixEQTL/meqtls/with_missingness/annotation/snps`
-- enrichment: `/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/integrative/matrixEQTL/meqtls/with missigness/enrichment/snps`
-
-Visualisation of the results is [here](https://github.com/ahryho/psychoGE/tree/master/code/integrative/meqtl/04_me-qtl_analysis/04_06_snps_with_missingness).
+The results are stored on the MPIP computational cluster.
 
 ## References
 
