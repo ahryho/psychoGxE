@@ -1,7 +1,5 @@
 ## **psychoGE:** joint impact of environmental and genetic determinants on the aetiology of stress-related psychiatric disorders
 
-_by Anastasiia Hryhorzhevska_
-
 - [Objectives](#objectives)
 - [Data](#data)
 - [Analysis](#analysis)
@@ -18,6 +16,7 @@ _by Anastasiia Hryhorzhevska_
   - [11. Genome-wide association studies (GWAS) enrichment analysis](#11-genome-wide-association-studies-gwas-enrichment-analysis)
   - [12. Phenome-wide association studies (PheWAS) analysis](#12-phenome-wide-association-studies-phewas-analysis)
 - [Results and additional information](#results-and-additional-information)
+- [Authors](#Authors)
 
 ## Objectives
 
@@ -108,3 +107,6 @@ For the methodology and scripts, please refer to the [PheWAS analysis](https://g
 Project outcomes are stored on the MPIP computational cluster.
 
 For additional information on methodology, results and limitations, please refer to the [slides]().
+
+## Authors
+[Anastasiia Hryhorzhevska](https://www.linkedin.com/in/ahryhorzhevska)
