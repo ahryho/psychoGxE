@@ -34,7 +34,7 @@ The exposure data, the IEU outcome list and trait annotation tables are store on
 
 ## Results
 
-The results are stored on the MPIP computational cluster: `/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/integrative/phewas`
+The results are stored on the MPIP computational cluster.
 
 ## References
 
