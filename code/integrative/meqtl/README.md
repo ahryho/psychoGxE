@@ -34,7 +34,5 @@ Since cis-regions with an extensive LD structure increase the false positive meQ
 
 ### Results
 
-The results are stored on the MPIP computational cluster: `/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/integrative/matrixEQTL/meqtls`
-
-In case of genotypes with missing values, the data are stored in the subfolder: `/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/data/integrative/matrixEQTL/meqtls/clumped/with_missigness`
+The results are stored on the MPIP computational cluster.
 
