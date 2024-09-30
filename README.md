@@ -106,7 +106,7 @@ For the methodology and scripts, please refer to the [PheWAS analysis](https://g
 
 Project outcomes are stored on the MPIP computational cluster.
 
-For additional information on methodology, results and limitations, please refer to the [slides]().
+For additional information on methodology, results and limitations, please contact the owner of this repository.
 
 ## Authors
 [Anastasiia Hryhorzhevska](https://www.linkedin.com/in/ahryhorzhevska)
