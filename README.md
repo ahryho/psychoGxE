@@ -101,7 +101,6 @@ For the methodology and scripts, please refer to the [GWAS enrichment analysis](
 
 For the methodology and scripts, please refer to the [PheWAS analysis](https://github.com/ahryho/psychoGxE/tree/master/code/integrative/phewas).
 
-
 ## Results and additional information
 
 Project outcomes are stored on the MPIP computational cluster.
