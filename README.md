@@ -40,18 +40,7 @@ The available multiomics data for the currect project:
 - Genotype
 - Phenotype 
 
-For detailed data overview, please refer to the [data overview](https://ahryho.github.io/psychoGE/).
-
 Data are stored on the MPIP computational cluster:
-
-- DNAm: `/binder/mgp/datasets/2020_DexStim_Array_Human/methylation`
-- Gene-expression: `/binder/mgp/datasets/2020_DexStim_Array_Human/gene_expression`
-- Genotype: 
-  - initial: `/binder/mgp/datasets/2020_DexStim_Array_Human/snps`
-  - imputed: `/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/data/snps/final_imputed_qc_snps/filtered_196_samples`
-- Phenotype: `/binder/mgp/datasets/2020_DexStim_Array_Human/pheno`
-  
-- Additional data (annotation, GWAS statistics etc): `/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/data`
 
 ## Analysis
 
@@ -116,6 +105,6 @@ For the methodology and scripts, please refer to the [PheWAS analysis](https://g
 
 ## Results and additional information
 
-Results are stored on the MPIP computational cluster: `/binder/mgp/workspace/2020_DexStim_Array_Human/dex-stim-human-array/output/`.
+Project outcomes are stored on the MPIP computational cluster.
 
-For additional information on methodology, results and limitations, please refer to the [manuscript]().
+For additional information on methodology, results and limitations, please refer to the [slides]().
